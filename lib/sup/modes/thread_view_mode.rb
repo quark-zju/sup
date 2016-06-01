@@ -20,6 +20,17 @@ Return value:
   None. The variable 'headers' should be modified in place.
 EOS
 
+  HookManager.register "collapsed-header", <<EOS
+Customize the content of the message header when it's collapsed.
+
+Variables:
+      message: The message object
+
+Return value:
+  A string, which is used as the new header
+EOS
+
+
   HookManager.register "bounce-command", <<EOS
 Determines the command used to bounce a message.
 Variables:
@@ -914,15 +925,17 @@ private
 
     case state
     when :open
+      content = HookManager.run "collapsed-header", :message => m, :state => state
       @person_lines[start] = m.from
       [[prefix_widget, open_widget, new_widget, attach_widget, starred_widget,
-        [color,
+        [color, content ||
             "#{m.from ? m.from.mediumname.fix_encoding! : '?'} to #{m.recipients.map { |l| l.shortname.fix_encoding! }.join(', ')} #{m.date.to_nice_s.fix_encoding!} (#{m.date.to_nice_distance_s.fix_encoding!})"]]]
 
     when :closed
+      content = HookManager.run "collapsed-header", :message => m, :state => state
       @person_lines[start] = m.from
       [[prefix_widget, open_widget, new_widget, attach_widget, starred_widget,
-        [color,
+        [color, content ||
         "#{m.from ? m.from.mediumname.fix_encoding! : '?'}, #{m.date.to_nice_s.fix_encoding!} (#{m.date.to_nice_distance_s.fix_encoding!})  #{m.snippet ? m.snippet.fix_encoding! : ''}"]]]
 
     when :detailed
