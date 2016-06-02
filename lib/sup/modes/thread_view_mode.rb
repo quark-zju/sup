@@ -577,21 +577,10 @@ EOS
 
     ## boundaries of the message
     message_left = l.depth * @indent_spaces
-    message_right = message_left + l.width
-
-    ## calculate leftmost colum
-    left = if force_alignment # force mode: align exactly
-      message_left
-    else # regular: minimize cursor movement
-      ## leftmost and rightmost are boundaries of all valid left-column
-      ## alignments.
-      leftmost = [message_left, message_right - buffer.content_width + 1].min
-      rightmost = message_left
-      leftcol.clamp(leftmost, rightmost)
+    if force_alignment
+      jump_to_line l.top        # move vertically
+      jump_to_col message_left  # move horizontally
     end
-
-    jump_to_line l.top    # move vertically
-    jump_to_col left      # move horizontally
     set_cursor_pos l.top  # set cursor pos
   end
 
