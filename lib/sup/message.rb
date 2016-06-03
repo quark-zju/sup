@@ -90,13 +90,10 @@ class Message
       #debug "faking non-existent message-id for message from #{from}: #{id}"
     end
 
-    @from = Person.from_address(if header["from"]
-      header["from"]
-    else
-      name = "Sup Auto-generated Fake Sender <sup@fake.sender.example.com>"
-      #debug "faking non-existent sender for message #@id: #{name}"
-      name
-    end)
+    @from = Person.from_address(
+      header["reply-to"] || header["from"] ||
+      "Sup Auto-generated Fake Sender <sup@fake.sender.example.com>"
+    )
 
     @date = case(date = header["date"])
     when Time
