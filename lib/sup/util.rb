@@ -579,6 +579,16 @@ class Array
 
   def last= e; self[-1] = e end
   def nonempty?; !empty? end
+
+  def display_length
+    if size == 2 && last.is_a?(String)
+      # a single widget
+      last.display_length
+    else
+      # an array of widgets
+      map(&:display_length).inject(:+).to_i
+    end
+  end
 end
 
 ## simple singleton module. far less complete and insane than the ruby standard
