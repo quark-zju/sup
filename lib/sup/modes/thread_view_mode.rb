@@ -950,7 +950,14 @@ private
       ]
       content = HookManager.run "collapsed-header", :message => m, :state => state, :segments => segments
       title_widget = [color, content || segments.join('  ')]
-      [[prefix_widget, open_widget, new_widget, attach_widget, starred_widget, title_widget]]
+      header_widgets = [prefix_widget, open_widget, new_widget, attach_widget, starred_widget, title_widget]
+      if $config[:patchwork]
+        m.patch.try do |patch|
+          patchwork_widget = [color, "  [#{patch.state_desc}]"]
+          header_widgets << patchwork_widget
+        end
+      end
+      [header_widgets]
     when :detailed
       @person_lines[start] = m.from
       from_line = [[prefix_widget, open_widget, new_widget, attach_widget, starred_widget,
