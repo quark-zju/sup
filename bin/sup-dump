@@ -1,5 +1,7 @@
 #!/usr/bin/env ruby
 
+require 'bundler/setup' rescue nil
+
 $:.unshift File.join(File.dirname(__FILE__), *%w[.. lib])
 
 require 'xapian'
