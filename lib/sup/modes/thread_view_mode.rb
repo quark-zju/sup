@@ -21,10 +21,12 @@ Return value:
 EOS
 
   HookManager.register "collapsed-header", <<EOS
-Customize the content of the message header when it's collapsed.
+Customize the content of the message header when it's collapsed. You can
+either modify the segments array, or return a new header string.
 
 Variables:
       message: The message object
+     segments: An array of strings that will be concated to be the header
 
 Return value:
   A string, which is used as the new header
@@ -936,20 +938,19 @@ private
     attach_widget = [color, (m.has_label?(:attachment) ? "@" : " ")]
 
     case state
-    when :open
-      content = HookManager.run "collapsed-header", :message => m, :state => state
+    when :open, :closed
       @person_lines[start] = m.from
-      [[prefix_widget, open_widget, new_widget, attach_widget, starred_widget,
-        [color, content ||
-            "#{m.from ? m.from.mediumname.fix_encoding! : '?'} to #{m.recipients.map { |l| l.shortname.fix_encoding! }.join(', ')} #{m.date.to_nice_s.fix_encoding!} (#{m.date.to_nice_distance_s.fix_encoding!})"]]]
-
-    when :closed
-      content = HookManager.run "collapsed-header", :message => m, :state => state
-      @person_lines[start] = m.from
-      [[prefix_widget, open_widget, new_widget, attach_widget, starred_widget,
-        [color, content ||
-        "#{m.from ? m.from.mediumname.fix_encoding! : '?'}, #{m.date.to_nice_s.fix_encoding!} (#{m.date.to_nice_distance_s.fix_encoding!})  #{m.snippet ? m.snippet.fix_encoding! : ''}"]]]
-
+      segments = [
+        m.from ? m.from.mediumname.fix_encoding! : '?',
+        # 'to',
+        # m.recipients.map { |l| l.shortname.fix_encoding! }.join(', '),
+        m.subj,
+        m.date.to_nice_s.fix_encoding!,
+        "(#{m.date.to_nice_distance_s.fix_encoding!})",
+      ]
+      content = HookManager.run "collapsed-header", :message => m, :state => state, :segments => segments
+      title_widget = [color, content || segments.join('  ')]
+      [[prefix_widget, open_widget, new_widget, attach_widget, starred_widget, title_widget]]
     when :detailed
       @person_lines[start] = m.from
       from_line = [[prefix_widget, open_widget, new_widget, attach_widget, starred_widget,
