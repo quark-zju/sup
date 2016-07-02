@@ -71,7 +71,7 @@ EOS
     ## these guys, and @text and @lines, are not covered
     @load_thread = nil
     @load_thread_opts = load_thread_opts
-    @hidden_labels = hidden_labels + LabelManager::HIDDEN_RESERVED_LABELS
+    @hidden_labels = hidden_labels + LabelManager::HIDDEN_RESERVED_LABELS + ($config[:hidden_labels] || []).map(&:to_sym)
     @date_width = DATE_WIDTH
 
     @interrupt_search = false

@@ -341,6 +341,7 @@ EOM
       :always_edit_async => false,
       :patchwork => true,
       :crypto => false,
+      :hidden_labels => [],
     }
     if File.exist? filename
       config = Redwood::load_yaml_obj filename
