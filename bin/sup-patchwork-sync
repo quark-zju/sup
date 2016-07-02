@@ -2,4 +2,7 @@
 
 require_relative '../lib/patchwork_database'
 
+# adjust log-level to INFO
+ActiveRecord::Base.logger.level = (ENV['LOGLEVEL'] || Logger::INFO).to_i
+
 PatchworkDatabase::Patch.sync!

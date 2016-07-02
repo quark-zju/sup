@@ -9,7 +9,7 @@ SCRIPT_DIR = File.expand_path(File.dirname(File.dirname(__FILE__)))
 ActiveRecord::Base.establish_connection(adapter: 'sqlite3', database: File.expand_path('~/.sup/patchwork.db'))
 ActiveRecord::Migrator.migrate(File.join(SCRIPT_DIR, 'db/migrate'))
 ActiveRecord::Base.logger = Logger.new(STDERR)
-ActiveRecord::Base.logger.level = (ENV['LOGLEVEL'] || Logger::INFO).to_i
+ActiveRecord::Base.logger.level = (ENV['LOGLEVEL'] || Logger::WARN).to_i
 
 module ::PatchworkDatabase
 
