@@ -121,7 +121,10 @@ EOS
     end
   end
 
-  def have_crypto?; @not_working_reason.nil? end
+  def have_crypto?
+    $config[:crypto] && @not_working_reason.nil?
+  end
+
   def not_working_reason; @not_working_reason end
 
   def sign from, to, payload
