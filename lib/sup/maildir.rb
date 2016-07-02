@@ -7,6 +7,12 @@ class Maildir < Source
   include SerializeLabelsNicely
   MYHOSTNAME = Socket.gethostname
 
+  def safe_basename str
+    # File.basename may removes /:.*$/ on cygwin, which is unwanted and breaks message files like
+    # '1467381009_0.32180.x1c,U=18338,FMD5=757a76410f87dd1e03625b5522bdbe44:2,S'
+    str.split(File::SEPARATOR).last
+  end
+
   ## remind me never to use inheritance again.
   yaml_properties :uri, :usual, :archived, :sync_back, :id, :labels
   def initialize uri, usual=true, archived=false, sync_back=true, id=nil, labels=[]
@@ -131,7 +137,7 @@ class Maildir < Source
       new_ids = benchmark(:maildir_read_dir) {
         Dir.open(subdir).select {
           |f| !File.directory? f}.map {
-            |x| File.join(d,File.basename(x)) }.sort }
+            |x| File.join(d, safe_basename(x)) }.sort }
       added += new_ids - old_ids
       deleted += old_ids - new_ids
       debug "#{old_ids.size} in index, #{new_ids.size} in filesystem"
@@ -221,7 +227,7 @@ private
   end
 
   def maildir_data id
-    id = File.basename id
+    id = safe_basename id
     # Flags we recognize are DFPRST
     id =~ %r{^([^:]+):([12]),([A-Za-z]*)$}
     [($1 || id), ($2 || "2"), ($3 || "")]
