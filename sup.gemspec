@@ -67,6 +67,9 @@ SUP: please note that our old mailing lists have been shut down,
   # make hooks easier
   s.add_runtime_dependency 'activesupport', '~> 5.0'
 
+  # somehow we need this
+  s.add_runtime_dependency 'json'
+
   # make debug easier
   s.add_development_dependency 'pry', '~> 0.10.0'
   s.add_development_dependency 'table_print', '~> 1.5.6'
