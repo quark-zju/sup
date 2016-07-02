@@ -271,6 +271,10 @@ EOS
       @size_widget_width = @size_widgets.max_of { |w| w.display_length }
       @date_widgets = @threads.map { |t| date_widget_for_thread t }
       @date_widget_width = @date_widgets.max_of { |w| w.display_length }
+      if $config[:patchwork]
+        @patchwork_widgets = @threads.map { |t| patchwork_widgets_for_thread t }
+        @patchwork_widget_width = @patchwork_widgets.max_of { |w| w.display_length }
+      end
     end
     set_cursor_pos @threads.index(old_cursor_thread)||curpos
 
@@ -820,6 +824,10 @@ protected
     HookManager.run("index-mode-date-widget", :thread => t) || default_date_widget_for(t)
   end
 
+  def patchwork_widgets_for_thread t
+    HookManager.run("index-mode-patchwork-widgets", :thread => t) || default_patchwork_widgets_for(t)
+  end
+
   def cursor_thread; @mutex.synchronize { @threads[curpos] }; end
 
   def drop_all_threads
@@ -834,6 +842,7 @@ protected
       @threads.delete_at i
       @size_widgets.delete_at i
       @date_widgets.delete_at i
+      @patchwork_widgets.delete_at i if @patchwork_widgets
       @tags.drop_tag_for t
     end
   end
@@ -846,6 +855,7 @@ protected
       @threads.delete_at i
       @size_widgets.delete_at i
       @date_widgets.delete_at i
+      @patchwork_widgets.delete_at i if @patchwork_widgets
       @tags.drop_tag_for t
     end
   end
@@ -992,11 +1002,18 @@ protected
       [Colormap.sym_is_defined("label_#{label}_color".to_sym) || :label_color, "#{label} "]
     end
 
+    patchwork_widgets = @patchwork_widgets.try do |pw|
+      main_widgets = pw[line]
+      left_padding = [:patchwork_unrelated_color, ' ' * (@patchwork_widget_width + 1 - main_widgets.display_length)]
+      right_padding = [:patchwork_unrelated_color, ' ']
+      [left_padding, *main_widgets, right_padding]
+    end || []
+
     [
       [:tagged_color, @tags.tagged?(t) ? ">" : " "],
       [:date_color, date_widget_text],
       [:starred_color, (starred ? "*" : " ")],
-    ] + from + [
+    ] + from + patchwork_widgets + [
       [:size_widget_color, size_widget_text],
       [:with_attachment_color , t.labels.member?(:attachment) ? "@" : " "],
       [:to_me_color, directly_participated ? ">" : (participated ? '+' : " ")],
@@ -1021,6 +1038,22 @@ private
 
   def default_date_widget_for t
     t.date.getlocal.to_nice_s
+  end
+
+  def default_patchwork_widgets_for t
+    # unlike other default_*_for methods, returns an array of widgets, instead of a string
+    t.patches.map do |pa|
+      case pa.state.simplified_sym
+      when :queuing
+        [:patchwork_queuing_color, '.']
+      when :accepted
+        [:patchwork_accepted_color, 'o']
+      when :rejected
+        [:patchwork_rejected_color, 'x']
+      else # :unrelated
+        [:patchwork_unrelated_color, '']
+      end
+    end
   end
 
   def from_width

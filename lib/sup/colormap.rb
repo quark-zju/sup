@@ -70,6 +70,10 @@ class Colormap
     :modified_buffer => { :fg => "yellow", :bg => "default", :attrs => ["bold"] },
     :date => { :fg => "white", :bg => "default"},
     :size_widget => { :fg => "white", :bg => "default"},
+    :patchwork_accepted => { :fg => "green", :bg => "default" },
+    :patchwork_rejected => { :fg => "red", :bg => "default" },
+    :patchwork_queuing => { :fg => "blue", :bg => "default" },
+    :patchwork_unrelated => { :fg => "default", :bg => "default" },
   }
 
   def initialize
