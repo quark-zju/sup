@@ -278,7 +278,8 @@ class Message
   end
 
   def raw_message_id
-    @raw_mid
+    # if @raw_mid (which is accurate) is not available, guess it from the index id @id
+    @raw_mid || "<#{@id}>"
   end
 
   def patch
