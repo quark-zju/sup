@@ -23,13 +23,13 @@ class LineCursorMode < ScrollMode
         sleep 0.5
         @load_more_q.pop until @load_more_q.empty?
       end
-    end
+    end unless $opts[:no_threads]
 
     super opts
   end
 
   def cleanup
-    @load_more_thread.kill
+    @load_more_thread.kill unless $opts[:no_threads]
     super
   end
 
@@ -197,7 +197,11 @@ private
   end
 
   def call_load_more_callbacks size
-    @load_more_q.push size if $config[:load_more_threads_when_scrolling]
+    if $opts[:no_threads]
+      @load_more_callbacks.each { |c| c.call size }
+    else
+      @load_more_q.push size if $config[:load_more_threads_when_scrolling]
+    end
   end
 end
 end
