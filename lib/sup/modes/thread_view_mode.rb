@@ -491,6 +491,15 @@ EOS
     end
   end
 
+  def jump_to_next
+    return continue_search_in_buffer if in_search? # hack: allow 'n' to apply to both operations
+    m = (curpos ... @message_lines.length).argfind { |i| @message_lines[i] }
+    return unless m
+    nextm = @layout[m].next
+    force_alignment = nil
+    jump_to_message nextm, force_alignment if nextm
+  end
+
   def jump_to_next_and_open
     return continue_search_in_buffer if in_search? # err.. don't know why im doing this
 
@@ -530,6 +539,20 @@ EOS
   def align_current_message
     m = @message_lines[curpos] or return
     jump_to_message m, true
+  end
+
+  def jump_to_prev
+    m = (0 .. curpos).to_a.reverse.argfind { |i| @message_lines[i] } # bah, .to_a
+    return unless m
+    ## jump to the top of the current message if we're in the body;
+    ## otherwise, to the previous message
+    top = @layout[m].top
+    if curpos == top
+      prevm = @layout[m].prev
+      jump_to_message prevm if prevm
+    else
+      jump_to_message m
+    end
   end
 
   def jump_to_prev_and_open force_alignment=nil
