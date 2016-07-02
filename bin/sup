@@ -146,9 +146,12 @@ begin
   $die = false
   trap("TERM") { |x| $die = true }
   trap("WINCH") do |x|
-   ::Thread.new do
-     BufferManager.sigwinch_happened!
-   end
+    if $opts[:no_threads]
+      BufferManager.instance_eval { @sigwinch_happened = true }
+      Ncurses.ungetch ?\C-l.ord
+    else
+      ::Thread.new { BufferManager.sigwinch_happened! }
+    end
   end
 
   if(s = Redwood::SourceManager.source_for DraftManager.source_name)
