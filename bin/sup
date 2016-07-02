@@ -139,6 +139,10 @@ Index.lock_interactively or exit
 
 begin
   Redwood::start
+
+  # secret config option: no_threads
+  $config[:no_threads].try { |v| $opts[:no_threads] = v }
+
   Index.load
   Redwood::check_syncback_settings
   Index.start_sync_worker unless $opts[:no_threads]
