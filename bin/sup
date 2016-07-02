@@ -11,11 +11,9 @@ require 'sup/util/ncurses'
 require 'sup/util/locale_fiddler'
 require 'sup/util/axe'
 
-no_gpgme = false
 begin
   require 'gpgme'
 rescue LoadError
-  no_gpgme = true
 end
 
 require 'fileutils'
@@ -25,10 +23,6 @@ require "sup"
 if ENV['SUP_PROFILE']
   require 'ruby-prof'
   RubyProf.start
-end
-
-if no_gpgme
-  info "No 'gpgme' gem detected. Install it for email encryption, decryption and signatures."
 end
 
 $opts = Trollop::options do
