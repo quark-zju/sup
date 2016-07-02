@@ -4,7 +4,7 @@ require 'sup/version'
 
 Gem::Specification.new do |s|
   s.name = "sup"
-  s.version = ENV["REL"] || (::Redwood::VERSION == "git" ? "999" : ::Redwood::VERSION)
+  s.version = ENV["REL"] || "0.0.0-#{::Redwood::VERSION}"
   s.date = Time.now.strftime "%Y-%m-%d"
   s.authors = ["William Morgan", "Gaute Hope", "Hamish Downer", "Matthieu Rakotojaona"]
   s.email   = "supmua@googlegroups.com"
@@ -60,11 +60,20 @@ SUP: please note that our old mailing lists have been shut down,
   s.add_runtime_dependency "chronic", "~> 0.9.1"
   s.add_runtime_dependency "unicode", "~> 0.4.4"
 
+  # used by patchwork database
+  s.add_runtime_dependency 'activerecord', '~> 5.0'
+  s.add_runtime_dependency 'sqlite3', '~> 1.3.0'
+
+  # make hooks easier
+  s.add_runtime_dependency 'activesupport', '~> 5.0'
+
+  # make debug easier
+  s.add_development_dependency 'pry', '~> 0.10.0'
+  s.add_development_dependency 'table_print', '~> 1.5.6'
+
   s.add_development_dependency "bundler", "~> 1.3"
   s.add_development_dependency "rake"
   s.add_development_dependency 'minitest', '~> 5.5.1'
   s.add_development_dependency "rr", "~> 1.1"
   s.add_development_dependency "gpgme", ">= 2.0.2"
-  s.add_development_dependency "pry"
-
 end
