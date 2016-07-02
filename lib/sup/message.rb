@@ -281,6 +281,15 @@ class Message
     @raw_mid
   end
 
+  def patch
+    # patchwork patch
+    @patch ||= \
+      begin
+        require_relative '../patchwork_database'
+        PatchworkDatabase::Patch.where(msgid: raw_message_id).includes(:delegate, :state).first
+      end
+  end
+
   def reload_from_source!
     @chunks = nil
     load_from_source!
