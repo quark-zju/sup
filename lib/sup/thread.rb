@@ -146,6 +146,13 @@ class Thread
     end
   end
 
+  def patches
+    # patchwork patches
+    msgids = map { |m| m.try(:raw_message_id) }.compact
+    require_relative '../patchwork_database'
+    @patches ||= PatchworkDatabase::Patch.includes(:state, :delegate).where(msgid: msgids)
+  end
+
   def to_s
     "<thread containing: #{@containers.join ', '}>"
   end
