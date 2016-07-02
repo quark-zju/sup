@@ -951,6 +951,12 @@ private
         "Subject" => m.subj
       }
 
+      if $config[:patchwork]
+        m.patch.try do |patch|
+          headers["Patchwork"] = patch.state_desc(show_id: true)
+        end
+      end
+
       show_labels = @thread.labels - LabelManager::HIDDEN_RESERVED_LABELS
       unless show_labels.empty?
         headers["Labels"] = show_labels.map { |x| x.to_s }.sort.join(', ')

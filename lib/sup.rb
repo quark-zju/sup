@@ -1,5 +1,4 @@
 # encoding: utf-8
-
 require 'yaml'
 require 'zlib'
 require 'thread'
@@ -12,6 +11,9 @@ begin
   require 'fastthread'
 rescue LoadError
 end
+
+# make hooks easier
+require 'active_support/core_ext/object/try'
 
 class Object
   ## this is for debugging purposes because i keep calling #id on the
@@ -337,6 +339,7 @@ EOM
       :sync_back_to_maildir => false,
       :continuous_scroll => false,
       :always_edit_async => false,
+      :patchwork => true,
     }
     if File.exist? filename
       config = Redwood::load_yaml_obj filename
