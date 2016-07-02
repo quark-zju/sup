@@ -1,0 +1,15 @@
+#!/usr/bin/env ruby
+
+# Start REPL in the PatchworkDatabase namespace, useful experimenting with
+# ActiveRecord objects.
+
+require_relative '../lib/patchwork_database'
+require 'pry'
+require 'table_print'
+
+# adjust log-level to DEBUG
+ActiveRecord::Base.logger.level = (ENV['LOGLEVEL'] || Logger::DEBUG).to_i
+
+module PatchworkDatabase
+  Pry.start binding, quiet: true
+end
