@@ -50,9 +50,9 @@ class State < ActiveRecord::Base
     end
   end
 
-  def self.NEW;          find_by(name: 'New'         ).try(:id) || 1; end
-  def self.UNDER_REVIEW; find_by(name: 'Under Review').try(:id) || 2; end
-  def self.ACCEPTED;     find_by(name: 'Accepted'    ).try(:id) || 3; end
+  def self.NEW;          (@new_id          ||= find_by(name: 'New'         ).try(:id)) || 1; end
+  def self.UNDER_REVIEW; (@under_review_id ||= find_by(name: 'Under Review').try(:id)) || 2; end
+  def self.ACCEPTED;     (@accepted_id     ||= find_by(name: 'Accepted'    ).try(:id)) || 3; end
 end
 class Submitter < ActiveRecord::Base; include PatchResource; end
 
