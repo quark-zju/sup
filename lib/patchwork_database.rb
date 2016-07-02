@@ -33,7 +33,27 @@ end
 
 class Delegate < ActiveRecord::Base;  include PatchResource; end
 class Project < ActiveRecord::Base;   include PatchResource; end
-class State < ActiveRecord::Base;     include PatchResource; end
+class State < ActiveRecord::Base
+  include PatchResource
+
+  def simplified_sym
+    # only 4 states: queuing, accepted, rejected, unrelated
+    case name
+    when 'New', 'Under Review', 'Pre-Reviewed'
+      :queuing
+    when 'Accepted'
+      :accepted
+    when 'Rejected', 'Changes Requested', 'Deferred', 'Superseded'
+      :rejected
+    else
+      :unrelated
+    end
+  end
+
+  def self.NEW;          find_by(name: 'New'         ).try(:id) || 1; end
+  def self.UNDER_REVIEW; find_by(name: 'Under Review').try(:id) || 2; end
+  def self.ACCEPTED;     find_by(name: 'Accepted'    ).try(:id) || 3; end
+end
 class Submitter < ActiveRecord::Base; include PatchResource; end
 
 class Patch < ActiveRecord::Base
@@ -42,9 +62,10 @@ class Patch < ActiveRecord::Base
   belongs_to :state
   belongs_to :submitter
 
-  scope :need_review, -> { where(state_id: 1) }
-  scope :under_review, -> { where(state_id: 2) }
-  scope :not_reviewed, -> { where(state_id: [1, 2]) }
+  scope :need_review,  -> { where(state_id: State.NEW) }
+  scope :under_review, -> { where(state_id: State.UNDER_REVIEW) }
+  scope :not_reviewed, -> { where(state_id: [State.NEW, State.UNDER_REVIEW]) }
+  scope :accepted,     -> { where(state_id: State.ACCEPTED) }
 
   def delegated?
     delegate_id.to_i > 0
