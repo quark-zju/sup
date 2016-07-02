@@ -75,5 +75,7 @@ SUP: please note that our old mailing lists have been shut down,
   s.add_development_dependency "rake"
   s.add_development_dependency 'minitest', '~> 5.5.1'
   s.add_development_dependency "rr", "~> 1.1"
-  s.add_development_dependency "gpgme", ">= 2.0.2"
+
+  # cygwin has issues with gpgme
+  s.add_development_dependency "gpgme", ">= 2.0.2" unless RUBY_PLATFORM['cygwin']
 end
