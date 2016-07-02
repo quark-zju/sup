@@ -1,0 +1,21 @@
+#!/usr/bin/env ruby
+
+# Start REPL in the Redwood namespace
+
+require 'bundler/setup' rescue nil
+
+require_relative '../lib/sup'
+require 'pry'
+
+module Redwood
+  Index.init
+  Index.lock_interactively or exit
+
+  start true
+  Index.load
+
+  index = Index.instance
+  thread_set = ThreadSet.new Index.instance
+
+  Pry.start binding, quiet: true
+end
