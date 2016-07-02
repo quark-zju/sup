@@ -29,6 +29,5 @@ class Schema < ActiveRecord::Migration[5.0]
     end
 
     add_index :patches, :msgid
-    add_index :patches, :state
   end
 end
