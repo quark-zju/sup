@@ -286,7 +286,6 @@ class Message
     # patchwork patch
     @patch ||= \
       begin
-        require_relative '../patchwork_database'
         PatchworkDatabase::Patch.where(msgid: raw_message_id).includes(:delegate, :state).first
       end
   end

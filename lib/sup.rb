@@ -178,6 +178,12 @@ module Redwood
 
     managers.each { |x| x.init unless x.instantiated? }
 
+    if $config[:patchwork]
+      debug 'connecting to patchwork database'
+      require_relative './patchwork_database'
+      debug 'patchwork database connected'
+    end
+
     return if bypass_sync_check
 
     if $config[:sync_back_to_maildir]

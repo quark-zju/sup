@@ -114,7 +114,6 @@ EOS
 
   def poll_patchwork
     BufferManager.flash "Polling for patchwork updates..."
-    require_relative '../patchwork_database'
     # ignore possible network errors
     PatchworkDatabase::Patch.sync! rescue nil
   end

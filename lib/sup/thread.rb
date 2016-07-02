@@ -148,9 +148,11 @@ class Thread
 
   def patches
     # patchwork patches
-    msgids = map { |m| m.try(:raw_message_id) }.compact
-    require_relative '../patchwork_database'
-    @patches ||= PatchworkDatabase::Patch.includes(:state, :delegate).where(msgid: msgids)
+    @patches ||= \
+      begin
+        msgids = map { |m| m.try(:raw_message_id) }.compact
+        PatchworkDatabase::Patch.includes(:state, :delegate).where(msgid: msgids)
+      end
   end
 
   def to_s
