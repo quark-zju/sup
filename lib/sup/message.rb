@@ -80,8 +80,9 @@ class Message
     header = SavingHash.new { |k| decode_header_field encoded_header[k] }
 
     @id = ''
-    if header["message-id"]
-      mid = header["message-id"] =~ /<(.+?)>/ ? $1 : header["message-id"]
+    @raw_mid = header["message-id"]
+    if @raw_mid
+      mid = @raw_mid =~ /<(.+?)>/ ? $1 : @raw_mid
       @id = sanitize_message_id mid
     end
     if (not @id.include? '@') || @id.length < 6
@@ -274,6 +275,10 @@ class Message
         raise e
 
       end
+  end
+
+  def raw_message_id
+    @raw_mid
   end
 
   def reload_from_source!
