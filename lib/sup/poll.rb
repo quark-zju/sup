@@ -90,6 +90,7 @@ EOS
 
   def poll
     if @polling.try_lock
+      poll_patchwork if $config[:patchwork]
       @poll_sources = SourceManager.usual_sources
       num, numi = poll_with_sources
       @polling.unlock
@@ -110,6 +111,13 @@ EOS
       debug "poll_unusual already in progress."
       return
     end
+  end
+
+  def poll_patchwork
+    BufferManager.flash "Polling for patchwork updates..."
+    require_relative '../patchwork_database'
+    # ignore possible network errors
+    PatchworkDatabase::Patch.sync! rescue nil
   end
 
   def start
