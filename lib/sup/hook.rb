@@ -90,6 +90,10 @@ class HookManager
 
   def run name, locals={}
     hook = hook_for(name) or return
+    # lazy locals
+    if block_given?
+      locals.merge! yield
+    end
     context = @contexts[hook] ||= HookContext.new(name)
 
     result = nil
