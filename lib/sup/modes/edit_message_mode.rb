@@ -276,17 +276,19 @@ EOS
 
     # prepare command line arguments
     editor = $config[:editor] || ENV['EDITOR'] || "/usr/bin/vi"
-
-    filepath = @file.path
-    pos = [@curpos, selector_lines + @header_lines.size].max - 1
-    ENV['POS'] = pos.to_s
-    editor = editor.gsub(/\$POS\b/, pos.to_s)
     is_gui = editor_is_gui?(editor)
 
+    filepath = @file.path
+    pos = [@curpos - selector_lines, @header_lines.size].max + 1
+    ENV['POS'] = pos.to_s
+    ENV['FILE'] = filepath
+    command = editor.gsub(/\$POS\b/, pos.to_s)
+    command << ' $FILE' unless command[/\$FILE\b/]
+    command.gsub! /\$FILE\b/, Shellwords.escape(filepath)
     if is_gui && !$opts[:no_threads]
-      ::Thread.new { start_edit editor, filepath, is_gui }
+      ::Thread.new { start_edit command, filepath, is_gui }
     else
-      start_edit editor, filepath, is_gui
+      start_edit command, filepath, is_gui
     end
   end
 
@@ -376,11 +378,11 @@ EOS
 
 protected
 
-  def start_edit editor, filepath, is_gui
+  def start_edit command, filepath, is_gui
     mtime = File.mtime filepath
 
     @editing = true
-    success = BufferManager.shell_out "#{editor} #{Shellwords.escape(filepath)}", is_gui
+    success = BufferManager.shell_out command, is_gui
     @editing = false
 
     @edited = File.exists?(filepath) && File.mtime(filepath) > mtime && success
