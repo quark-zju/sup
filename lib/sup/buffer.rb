@@ -732,12 +732,16 @@ EOS
     @shelled = true
     Ncurses.sync do
       Ncurses.endwin
-      system command
+      @success = system command
       Ncurses.stdscr.keypad 1
       Ncurses.refresh
       Ncurses.curs_set 0
     end
     @shelled = false
+  end
+
+  def shell_success?
+    @success
   end
 
 private

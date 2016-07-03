@@ -267,7 +267,7 @@ EOS
 
     mtime = File.mtime @file.path
     BufferManager.shell_out "#{editor} #{@file.path}"
-    @edited = true if File.mtime(@file.path) > mtime
+    @edited = File.mtime(@file.path) > mtime && BufferManager.shell_success?
 
     return @edited unless @edited
 
