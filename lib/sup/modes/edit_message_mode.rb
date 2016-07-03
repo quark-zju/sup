@@ -382,6 +382,7 @@ protected
     mtime = File.mtime filepath
 
     @editing = true
+    BufferManager.completely_redraw_screen
     success = BufferManager.shell_out command, is_gui
     @editing = false
 
