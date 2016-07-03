@@ -8,7 +8,7 @@ Sup is a console-based email client for people with a lot of email.
 
 - [Patchwork](http://jk.ozlabs.org/projects/patchwork/) integration. As the `.`, `o`, `x` in the screenshot, patch states can be easily observed.
 - More flexible hooks. New hooks like `text-filter`, `collapsed-header` make things more flexible.
-- Various minor improvements. For example, prefer `Reply-To` to `From` when rendering a sender, making it more accurate in some lists.
+- Various fixes and improvements. For example, respect editor's exit code, no more "bundle exec", better cygwin support, etc. Read commit log for details.
 
 ## Installation
 
