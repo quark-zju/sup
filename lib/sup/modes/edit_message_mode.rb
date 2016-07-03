@@ -171,7 +171,7 @@ EOS
     regen_text
   end
 
-  def lines; @text.length + (@selectors.empty? ? 0 : (@selectors.length + DECORATION_LINES)) end
+  def lines; @text.length + selector_lines end
 
   def [] i
     if @selectors.empty?
@@ -188,8 +188,12 @@ EOS
   ## hook for subclasses. i hate this style of programming.
   def handle_new_text header, body; end
 
+  def selector_lines
+    lines = (@selectors.empty? ? 0 : DECORATION_LINES + @selectors.size)
+  end
+
   def edit_message_or_field
-    lines = (@selectors.empty? ? 0 : DECORATION_LINES) + @selectors.size
+    lines = selector_lines
     if lines > curpos
       return
     elsif (curpos - lines) >= @header_lines.length
@@ -266,6 +270,9 @@ EOS
     editor = $config[:editor] || ENV['EDITOR'] || "/usr/bin/vi"
 
     mtime = File.mtime @file.path
+    pos = [@curpos, selector_lines + @header_lines.size].max - 1
+    ENV['POS'] = pos.to_s
+    editor = editor.gsub(/\$POS\b/, pos.to_s)
     BufferManager.shell_out "#{editor} #{@file.path}"
     @edited = File.mtime(@file.path) > mtime && BufferManager.shell_success?
 

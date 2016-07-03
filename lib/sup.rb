@@ -322,7 +322,7 @@ EOM
   ## set up default configuration file
   def load_config filename
     default_config = {
-      :editor => ENV["EDITOR"] || "/usr/bin/vim -f -c 'setlocal spell spelllang=en_us' -c 'set filetype=mail'",
+      :editor => ENV["EDITOR"] || "/usr/bin/vim -f -c 'setlocal spell spelllang=en_us' -c 'set ft=mail tw=76' '+$POS'",
       :thread_by_subject => false,
       :edit_signature => false,
       :ask_for_from => false,
