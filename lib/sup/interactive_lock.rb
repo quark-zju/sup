@@ -26,9 +26,9 @@ module InteractiveLock
     begin
       Index.lock
     rescue Index::LockError => e
+      StartupManager.stop
       begin
         Process.kill 0, e.pid.to_i # 0 signal test the existence of PID
-        StartupManager.stop
         stream.puts <<EOS
   Error: the index is locked by another process! User '#{e.user}' on
   host '#{e.host}' is running #{e.pname} with pid #{e.pid}.

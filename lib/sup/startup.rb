@@ -35,7 +35,7 @@ class StartupManager
     return if @started
     @started = true
     # do not start a thread if we are in debug mode or threads are disabled
-    return if $opts[:no_threads] || is_debug? || disabled?
+    return if is_debug? || disabled? || !$opts || $opts[:no_threads]
     @thread = ::Thread.new do
       spin = '-\|/'
       count = 0
@@ -59,7 +59,7 @@ class StartupManager
   end
 
   def self.disabled?
-    !$config[:show_startup_progress]
+    !$config || !$config[:show_startup_progress]
   end
 
 protected

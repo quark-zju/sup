@@ -2,8 +2,7 @@
 
 # Start REPL in the Redwood namespace
 
-require 'bundler/setup' rescue nil
-
+require_relative '../lib/bootstrap'
 require_relative '../lib/sup'
 require 'pry'
 

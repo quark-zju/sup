@@ -3,8 +3,7 @@
 # Start REPL in the PatchworkDatabase namespace, useful experimenting with
 # ActiveRecord objects.
 
-require 'bundler/setup' rescue nil
-
+require_relative '../lib/bootstrap'
 require_relative '../lib/patchwork_database'
 require 'pry'
 require 'table_print'

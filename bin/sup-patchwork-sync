@@ -1,7 +1,6 @@
 #!/usr/bin/env ruby
 
-require 'bundler/setup' rescue nil
-
+require_relative '../lib/bootstrap'
 require_relative '../lib/patchwork_database'
 
 # adjust log-level to INFO

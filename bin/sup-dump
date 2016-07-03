@@ -1,8 +1,6 @@
 #!/usr/bin/env ruby
 
-require 'bundler/setup' rescue nil
-
-$:.unshift File.join(File.dirname(__FILE__), *%w[.. lib])
+require_relative '../lib/bootstrap'
 
 require 'xapian'
 require 'trollop'
