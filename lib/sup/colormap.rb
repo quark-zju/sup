@@ -74,6 +74,7 @@ class Colormap
     :patchwork_rejected => { :fg => "red", :bg => "default" },
     :patchwork_queuing => { :fg => "blue", :bg => "default" },
     :patchwork_unrelated => { :fg => "default", :bg => "default" },
+    :editing_notification => { :fg => "red", :bg => "default", :attrs => ["bold"] },
   }
 
   def initialize

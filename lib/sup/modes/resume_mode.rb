@@ -17,6 +17,7 @@ class ResumeMode < EditMessageMode
   def unsaved?; !@safe end
 
   def killable?
+    return false if warn_editing
     return true if @safe
 
     case BufferManager.ask_yes_or_no "Discard draft?"

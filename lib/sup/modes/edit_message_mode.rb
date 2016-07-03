@@ -1,4 +1,5 @@
 require 'tempfile'
+require 'shellwords'
 require 'socket' # just for gethostname!
 require 'pathname'
 
@@ -174,6 +175,9 @@ EOS
   def lines; @text.length + selector_lines end
 
   def [] i
+    if @editing && i == 0
+      return [[:editing_notification_color, 'This message is being edited in a gui editor']]
+    end
     if @selectors.empty?
       @text[i]
     elsif i < @selectors.length
@@ -208,6 +212,7 @@ EOS
   def edit_subject; edit_field "Subject" end
 
   def save_message_to_file
+    raise 'cannot save message to another file while editing' if @editing
     sig = sig_lines.join("\n")
     @file = Tempfile.new ["sup.#{self.class.name.gsub(/.*::/, '').camel_to_hyphy}", ".eml"]
     @file.puts format_headers(@header - NON_EDITABLE_HEADERS).first
@@ -258,6 +263,8 @@ EOS
   end
 
   def edit_message
+    return false if warn_editing
+
     old_from = @header["From"] if @account_selector
 
     begin
@@ -267,34 +274,25 @@ EOS
       return
     end
 
+    # prepare command line arguments
     editor = $config[:editor] || ENV['EDITOR'] || "/usr/bin/vi"
 
-    mtime = File.mtime @file.path
+    filepath = @file.path
     pos = [@curpos, selector_lines + @header_lines.size].max - 1
     ENV['POS'] = pos.to_s
     editor = editor.gsub(/\$POS\b/, pos.to_s)
-    BufferManager.shell_out "#{editor} #{@file.path}"
-    @edited = File.mtime(@file.path) > mtime && BufferManager.shell_success?
+    is_gui = editor_is_gui?(editor)
 
-    return @edited unless @edited
-
-    header, @body = parse_file @file.path
-    @header = header - NON_EDITABLE_HEADERS
-    set_sig_edit_flag
-
-    if @account_selector and @header["From"] != old_from
-      @account_user = @header["From"]
-      @account_selector.set_to nil
+    if is_gui && !$opts[:no_threads]
+      ::Thread.new { start_edit editor, filepath, is_gui }
+    else
+      start_edit editor, filepath, is_gui
     end
-
-    handle_new_text @header, @body
-    rerun_crypto_selector_hook
-    update
-
-    @edited
   end
 
   def edit_message_async
+    return false if warn_editing
+
     begin
       save_message_to_file
     rescue SystemCallError => e
@@ -331,6 +329,7 @@ EOS
   end
 
   def killable?
+    return false if warn_editing
     if !@async_mode.nil?
       return false if !@async_mode.killable?
       if File.mtime(@file.path) > @mtime
@@ -376,6 +375,43 @@ EOS
   end
 
 protected
+
+  def start_edit editor, filepath, is_gui
+    mtime = File.mtime filepath
+
+    @editing = true
+    success = BufferManager.shell_out "#{editor} #{Shellwords.escape(filepath)}", is_gui
+    @editing = false
+
+    @edited = File.exists?(filepath) && File.mtime(filepath) > mtime && success
+
+    if not @edited
+      BufferManager.completely_redraw_screen
+      return @edited
+    end
+
+    header, @body = parse_file filepath
+    @header = header - NON_EDITABLE_HEADERS
+    set_sig_edit_flag
+
+    if @account_selector and @header["From"] != old_from
+      @account_user = @header["From"]
+      @account_selector.set_to nil
+    end
+
+    handle_new_text @header, @body
+    rerun_crypto_selector_hook
+    update
+    BufferManager.completely_redraw_screen
+
+    @edited
+  end
+
+  def warn_editing
+    @editing.tap do |e|
+      BufferManager.flash 'Cannot do that while the message is being edited' if e
+    end
+  end
 
   def rerun_crypto_selector_hook
     if @crypto_selector && !@crypto_selector.changed_by_user
@@ -513,6 +549,7 @@ protected
   end
 
   def send_message
+    return false if warn_editing
     return false if !edited? && !BufferManager.ask_yes_or_no("Message unedited. Really send?")
     return false if $config[:confirm_no_attachments] && mentions_attachments? && @attachments.size == 0 && !BufferManager.ask_yes_or_no("You haven't added any attachments. Really send?")#" stupid ruby-mode
     return false if $config[:confirm_top_posting] && top_posting? && !BufferManager.ask_yes_or_no("You're top-posting. That makes you a bad person. Really send?") #" stupid ruby-mode
@@ -641,6 +678,8 @@ EOS
 protected
 
   def edit_field field
+    return false if warn_editing
+
     case field
     when "Subject"
       text = BufferManager.ask :subject, "Subject: ", @header[field]
@@ -670,6 +709,17 @@ protected
         rerun_crypto_selector_hook
         update
       end
+    end
+  end
+
+  def editor_is_gui?(editor)
+    $config[:editor_is_gui].try { |v| return v }
+    # make a guess
+    case editor.downcase
+    when /\bgvim\b/i, /\bnotepad/i, /\bsubl/i
+      true
+    else
+      false
     end
   end
 

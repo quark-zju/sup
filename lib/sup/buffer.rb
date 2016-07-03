@@ -728,20 +728,23 @@ EOS
     draw_screen :refresh => true
   end
 
-  def shell_out command
-    @shelled = true
-    Ncurses.sync do
-      Ncurses.endwin
-      @success = system command
-      Ncurses.stdscr.keypad 1
-      Ncurses.refresh
-      Ncurses.curs_set 0
+  def shell_out command, is_gui=false
+    success = false
+    if is_gui
+      # no need to save and restore ncurses state
+      success = system command
+    else
+      @shelled = true
+      Ncurses.sync do
+        Ncurses.endwin
+        success = system command
+        Ncurses.stdscr.keypad 1
+        Ncurses.refresh
+        Ncurses.curs_set 0
+      end
+      @shelled = false
     end
-    @shelled = false
-  end
-
-  def shell_success?
-    @success
+    success
   end
 
 private
