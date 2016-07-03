@@ -15,10 +15,10 @@ module Ncurses
     def self.nonblocking_getwch
       # If we get input while we're shelled, we'll ignore it for the
       # moment and use Ncurses.sync to wait until the shell_out is done.
-      begin
+      while IO.select([$stdin], nil, nil, 2)
         s, c = Redwood::BufferManager.shelled? ? Ncurses.sync { nil } : Ncurses.get_wch
         break if s != Ncurses::ERR
-      end until IO.select([$stdin], nil, nil, 2)
+      end
       [s, c]
     end
 
