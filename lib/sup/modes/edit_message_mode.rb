@@ -176,16 +176,16 @@ EOS
 
   def [] i
     if @editing && i == 0
-      return [[:editing_notification_color, 'This message is being edited in a gui editor']]
+      return [[:editing_notification_color, ' [read-only] Message being edited in an external editor']]
     end
     if @selectors.empty?
-      @text[i]
+      decorate_editing_line @text[i]
     elsif i < @selectors.length
       @selectors[i].line @selector_label_width
     elsif i == @selectors.length
       ""
     else
-      @text[i - @selectors.length - DECORATION_LINES]
+      decorate_editing_line @text[i - @selectors.length - DECORATION_LINES]
     end
   end
 
@@ -411,7 +411,15 @@ protected
 
   def warn_editing
     @editing.tap do |e|
-      BufferManager.flash 'Cannot do that while the message is being edited' if e
+      BufferManager.flash 'Please close your editor before continue' if e
+    end
+  end
+
+  def decorate_editing_line line
+    if @editing
+      [[:editing_frozen_text_color, line]]
+    else
+      line
     end
   end
 

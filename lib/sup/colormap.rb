@@ -74,7 +74,8 @@ class Colormap
     :patchwork_rejected => { :fg => "red", :bg => "default" },
     :patchwork_queuing => { :fg => "blue", :bg => "default" },
     :patchwork_unrelated => { :fg => "default", :bg => "default" },
-    :editing_notification => { :fg => "red", :bg => "default", :attrs => ["bold"] },
+    :editing_notification => { :fg => "white", :bg => "magenta", :attrs => ["bold"] },
+    :editing_frozen_text => { :fg => "default", :bg => "default", :attrs => ["dim"] },
   }
 
   def initialize
@@ -136,18 +137,15 @@ class Colormap
         Ncurses::COLOR_CYAN
       end
 
-    attrs =
+    hattrs =
       if fg == Ncurses::COLOR_WHITE && attrs.include?(Ncurses::A_BOLD)
-        [Ncurses::A_BOLD]
+        attrs
+      elsif hfg == Ncurses::COLOR_BLACK
+        attrs - [Ncurses::A_BOLD]
       else
-        case hfg
-        when Ncurses::COLOR_BLACK
-          []
-        else
-          [Ncurses::A_BOLD]
-        end
+        attrs | [Ncurses::A_BOLD]
       end
-    [hfg, hbg, attrs]
+    [hfg, hbg, hattrs]
   end
 
   def color_for sym, highlight=false
