@@ -37,7 +37,14 @@ end
 
 Trollop::die :subject, "requires --compose" if $opts[:subject] && !$opts[:compose]
 
-# config and command line parsed
+# secret config option: no_threads
+$opts[:no_threads] = $config[:no_threads] if $config.key?(:no_threads)
+
+# config and command line are now parsed
+
+# startup progress
+require 'sup/startup'
+Redwood::StartupManager.say 'starting sup'
 
 require 'ncursesw'
 
@@ -146,9 +153,6 @@ Index.lock_interactively or exit
 
 begin
   Redwood::start
-
-  # secret config option: no_threads
-  $config[:no_threads].try { |v| $opts[:no_threads] = v }
 
   Index.load
   Redwood::check_syncback_settings

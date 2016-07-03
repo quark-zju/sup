@@ -1,4 +1,4 @@
-require_relative './constants'
+require 'sup/constants'
 require 'yaml'
 
 module ::Redwood

@@ -709,7 +709,8 @@ EOS
 
   def flash s
     @flash = s
-    draw_screen :refresh => true
+    # there can be races that something needed to draw is gone, ie. @focus_buf becomes nil during kill_buffer
+    draw_screen :refresh => true rescue nil
   end
 
   ## a little tricky because we can't just delete_at id because ids

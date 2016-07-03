@@ -81,6 +81,8 @@ module Redwood
   end
 
   def start bypass_sync_check = false
+    StartupManager.say 'initializing components'
+
     managers.each { |x| fail "#{x} already instantiated" if x.instantiated? }
 
     FileUtils.mkdir_p Redwood::BASE_DIR
@@ -98,13 +100,14 @@ module Redwood
     managers.each { |x| x.init unless x.instantiated? }
 
     if $config[:patchwork]
-      debug 'connecting to patchwork database'
+      StartupManager.say 'connecting to patchwork database'
       require_relative './patchwork_database'
       ::PatchworkDatabase.class_eval do
         class << self; attr_accessor :updated_at; end
       end
-      debug 'patchwork database connected'
     end
+
+    StartupManager.stop
 
     return if bypass_sync_check
 
@@ -245,6 +248,7 @@ require 'sup/config'
 require 'sup/version'
 require "sup/util"
 require "sup/hook"
+require 'sup/startup'
 require "sup/time"
 
 ## everything we need to get logging working
