@@ -1,5 +1,4 @@
 # encoding: utf-8
-require 'yaml'
 require 'zlib'
 require 'thread'
 require 'fileutils'
@@ -47,27 +46,6 @@ class Module
 end
 
 module Redwood
-  BASE_DIR   = ENV["SUP_BASE"] || File.join(ENV["HOME"], ".sup")
-  CONFIG_FN  = File.join(BASE_DIR, "config.yaml")
-  COLOR_FN   = File.join(BASE_DIR, "colors.yaml")
-  SOURCE_FN  = File.join(BASE_DIR, "sources.yaml")
-  LABEL_FN   = File.join(BASE_DIR, "labels.txt")
-  CONTACT_FN = File.join(BASE_DIR, "contacts.txt")
-  DRAFT_DIR  = File.join(BASE_DIR, "drafts")
-  SENT_FN    = File.join(BASE_DIR, "sent.mbox")
-  LOCK_FN    = File.join(BASE_DIR, "lock")
-  SUICIDE_FN = File.join(BASE_DIR, "please-kill-yourself")
-  HOOK_DIR   = File.join(BASE_DIR, "hooks")
-  SEARCH_FN  = File.join(BASE_DIR, "searches.txt")
-  LOG_FN     = File.join(BASE_DIR, "log")
-  SYNC_OK_FN = File.join(BASE_DIR, "sync-back-ok")
-
-  YAML_DOMAIN = "supmua.org"
-  LEGACY_YAML_DOMAIN = "masanjin.net"
-  YAML_DATE = "2006-10-01"
-  MAILDIR_SYNC_CHECK_SKIPPED = 'SKIPPED'
-  URI_ENCODE_CHARS = "!*'();:@&=+$,?#[] " # see https://en.wikipedia.org/wiki/Percent-encoding
-
   ## record exceptions thrown in threads nicely
   @exceptions = []
   @exception_mutex = Mutex.new
@@ -96,65 +74,6 @@ module Redwood
 
   module_function :reporting_thread, :record_exception, :exceptions
 
-## one-stop shop for yamliciousness
-  def save_yaml_obj o, fn, safe=false, backup=false
-    o = if o.is_a?(Array)
-      o.map { |x| (x.respond_to?(:before_marshal) && x.before_marshal) || x }
-    elsif o.respond_to? :before_marshal
-      o.before_marshal
-    else
-      o
-    end
-
-    mode = if File.exist? fn
-      File.stat(fn).mode
-    else
-      0600
-    end
-
-    if backup
-      backup_fn = fn + '.bak'
-      if File.exist?(fn) && File.size(fn) > 0
-        File.open(backup_fn, "w", mode) do |f|
-          File.open(fn, "r") { |old_f| FileUtils.copy_stream old_f, f }
-          f.fsync
-        end
-      end
-      File.open(fn, "w") do |f|
-        f.puts o.to_yaml
-        f.fsync
-      end
-    elsif safe
-      safe_fn = "#{File.dirname fn}/safe_#{File.basename fn}"
-      File.open(safe_fn, "w", mode) do |f|
-        f.puts o.to_yaml
-        f.fsync
-      end
-      FileUtils.mv safe_fn, fn
-    else
-      File.open(fn, "w", mode) do |f|
-        f.puts o.to_yaml
-        f.fsync
-      end
-    end
-  end
-
-  def load_yaml_obj fn, compress=false
-    o = if File.exist? fn
-      if compress
-        Zlib::GzipReader.open(fn) { |f| YAML::load f }
-      else
-        YAML::load_file fn
-      end
-    end
-    if o.is_a?(Array)
-      o.each { |x| x.after_unmarshal! if x.respond_to?(:after_unmarshal!) }
-    else
-      o.after_unmarshal! if o.respond_to?(:after_unmarshal!)
-    end
-    o
-  end
-
   def managers
     %w(HookManager SentManager ContactManager LabelManager AccountManager
     DraftManager UpdateManager PollManager CryptoManager UndoManager
@@ -165,7 +84,7 @@ module Redwood
     managers.each { |x| fail "#{x} already instantiated" if x.instantiated? }
 
     FileUtils.mkdir_p Redwood::BASE_DIR
-    $config = load_config Redwood::CONFIG_FN
+    $config = load_config Redwood::CONFIG_FN unless $config
     @log_io = File.open(Redwood::LOG_FN, 'a')
     Redwood::Logger.add_sink @log_io
     Redwood::HookManager.init Redwood::HOOK_DIR
@@ -318,83 +237,11 @@ EOM
     end
   end
 
-
-  ## set up default configuration file
-  def load_config filename
-    default_config = {
-      :editor => ENV["EDITOR"] || "/usr/bin/vim -f -c 'setlocal spell spelllang=en_us' -c 'set ft=mail tw=76' '+$LINE'",
-      :thread_by_subject => false,
-      :edit_signature => false,
-      :ask_for_from => false,
-      :ask_for_to => true,
-      :ask_for_cc => false,
-      :ask_for_bcc => false,
-      :ask_for_subject => true,
-      :account_selector => true,
-      :confirm_no_attachments => true,
-      :confirm_top_posting => true,
-      :jump_to_open_message => false,
-      :discard_snippets_from_encrypted_messages => false,
-      :load_more_threads_when_scrolling => true,
-      :default_attachment_save_dir => "",
-      :sent_source => "sup://sent",
-      :archive_sent => false,
-      :poll_interval => 300,
-      :wrap_width => 0,
-      :slip_rows => 10,
-      :indent_spaces => 2,
-      :col_jump => 2,
-      :stem_language => "english",
-      :sync_back_to_maildir => true,
-      :continuous_scroll => false,
-      :always_edit_async => false,
-      :patchwork => true,
-      :crypto => false,
-      :hidden_labels => [],
-    }
-    if File.exist? filename
-      config = Redwood::load_yaml_obj filename
-      abort "#{filename} is not a valid configuration file (it's a #{config.class}, not a hash)" unless config.is_a?(Hash)
-      default_config.merge config
-    else
-      require 'etc'
-      require 'socket'
-      name = Etc.getpwnam(ENV["USER"]).gecos.split(/,/).first.force_encoding($encoding).fix_encoding! rescue nil
-      name ||= ENV["USER"]
-      email = ENV["USER"] + "@" +
-        begin
-          Socket.gethostbyname(Socket.gethostname).first
-        rescue SocketError
-          Socket.gethostname
-        end
-
-      config = {
-        :accounts => {
-          :default => {
-            :name => name.dup.fix_encoding!,
-            :email => email.dup.fix_encoding!,
-            :alternates => [],
-            :sendmail => "/usr/sbin/sendmail -oem -ti",
-            :signature => File.join(ENV["HOME"], ".signature"),
-            :gpgkey => ""
-          }
-        },
-      }
-      config.merge! default_config
-      begin
-        Redwood::save_yaml_obj config, filename, false, true
-      rescue StandardError => e
-        $stderr.puts "warning: #{e.message}"
-      end
-      config
-    end
-  end
-
-  module_function :save_yaml_obj, :load_yaml_obj, :start, :finish,
-                  :report_broken_sources, :load_config, :managers,
+  module_function :start, :finish, :report_broken_sources, :managers,
                   :check_syncback_settings
 end
 
+require 'sup/config'
 require 'sup/version'
 require "sup/util"
 require "sup/hook"

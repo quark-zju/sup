@@ -5,25 +5,16 @@ require 'bundler/setup' rescue nil
 
 $:.unshift File.join(File.dirname(__FILE__), *%w[.. lib])
 
-require 'ncursesw'
-
-require 'sup/util/ncurses'
-require 'sup/util/locale_fiddler'
-require 'sup/util/axe'
-
-begin
-  require 'gpgme'
-rescue LoadError
-end
-
-require 'fileutils'
-require 'trollop'
-require "sup"
-
 if ENV['SUP_PROFILE']
   require 'ruby-prof'
   RubyProf.start
 end
+
+# load config early
+require 'sup/config'
+$config = Redwood::load_config Redwood::CONFIG_FN
+
+require 'trollop'
 
 $opts = Trollop::options do
   version "sup v#{Redwood::VERSION}"
@@ -45,6 +36,22 @@ EOS
 end
 
 Trollop::die :subject, "requires --compose" if $opts[:subject] && !$opts[:compose]
+
+# config and command line parsed
+
+require 'ncursesw'
+
+require 'sup/util/ncurses'
+require 'sup/util/locale_fiddler'
+require 'sup/util/axe'
+
+begin
+  require 'gpgme'
+rescue LoadError
+end
+
+require 'fileutils'
+require "sup"
 
 Redwood::HookManager.register "startup", <<EOS
 Executes at startup
