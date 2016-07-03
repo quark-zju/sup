@@ -280,9 +280,9 @@ EOS
 
     filepath = @file.path
     pos = [@curpos - selector_lines, @header_lines.size].max + 1
-    ENV['POS'] = pos.to_s
+    ENV['LINE'] = pos.to_s
     ENV['FILE'] = filepath
-    command = editor.gsub(/\$POS\b/, pos.to_s)
+    command = editor.gsub(/\$LINE\b/, pos.to_s)
     command << ' $FILE' unless command[/\$FILE\b/]
     command.gsub! /\$FILE\b/, Shellwords.escape(filepath)
     if is_gui && !$opts[:no_threads]
