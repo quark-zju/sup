@@ -3,7 +3,6 @@ require 'sup/util'
 
 if defined? Ncurses
 module Ncurses
-
   ## Helper class for storing keycodes
   ## and multibyte characters.
   class CharCode < String
@@ -12,11 +11,16 @@ module Ncurses
     attr_reader :status
 
     ## Reads character from user input.
-    def self.nonblocking_getwch
+    def self.nonblocking_getwch(win=nil)
+      $sigpipe ||= IO.pipe
       # If we get input while we're shelled, we'll ignore it for the
       # moment and use Ncurses.sync to wait until the shell_out is done.
-      while IO.select([$stdin], nil, nil, 2)
-        s, c = Redwood::BufferManager.shelled? ? Ncurses.sync { nil } : Ncurses.get_wch
+      s = c = nil
+      loop do
+        fds = IO.select([$stdin, $sigpipe[0]], nil, nil, 2).try {|x| x[0]}
+        # interrupted by sigpipe, but no real input comes in
+        break if fds == [$sigpipe[0]]
+        s, c = Redwood::BufferManager.shelled? ? Ncurses.sync { nil } : (win || Ncurses).get_wch
         break if s != Ncurses::ERR
       end
       [s, c]
@@ -52,9 +56,9 @@ module Ncurses
 
     ## Gets character from input.
     ## Pretends ctrl-c's are ctrl-g's.
-    def self.get handle_interrupt=true
+    def self.get handle_interrupt=true, win: nil
       begin
-        status, code = nonblocking_getwch
+        status, code = nonblocking_getwch(win)
         generate code, status
       rescue Interrupt => e
         raise e unless handle_interrupt
