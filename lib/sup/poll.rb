@@ -116,6 +116,11 @@ EOS
     BufferManager.flash "Polling for patchwork updates..."
     # ignore possible network errors
     PatchworkDatabase::Patch.sync! rescue nil
+    PatchworkDatabase::updated_at = Time.now.to_i
+    # update buffers
+    BufferManager.buffers.each do |name, buf|
+      buf.mode.update rescue nil
+    end
   end
 
   def start

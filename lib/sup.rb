@@ -181,6 +181,9 @@ module Redwood
     if $config[:patchwork]
       debug 'connecting to patchwork database'
       require_relative './patchwork_database'
+      ::PatchworkDatabase.class_eval do
+        class << self; attr_accessor :updated_at; end
+      end
       debug 'patchwork database connected'
     end
 

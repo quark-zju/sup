@@ -147,9 +147,12 @@ class Thread
   end
 
   def patches
+    # expire cache
+    @patches = nil if PatchworkDatabase::updated_at.to_i > @patches_updated_at.to_i
     # patchwork patches
     @patches ||= \
       begin
+        @patches_updated_at = Time.now.to_i
         msgids = map { |m| m.try(:raw_message_id) }.compact
         PatchworkDatabase::Patch.includes(:state, :delegate).where(msgid: msgids)
       end

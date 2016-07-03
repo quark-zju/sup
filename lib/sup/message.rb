@@ -283,9 +283,12 @@ class Message
   end
 
   def patch
+    # expire cache
+    @patch = nil if PatchworkDatabase::updated_at.to_i > @patch_updated_at.to_i
     # patchwork patch
     @patch ||= \
       begin
+        @patch_updated_at = Time.now.to_i
         PatchworkDatabase::Patch.where(msgid: raw_message_id).includes(:delegate, :state).first
       end
   end
