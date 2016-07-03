@@ -730,6 +730,7 @@ EOS
   end
 
   def shell_out command, is_gui=false
+    debug "shell out #{command}"
     success = false
     if is_gui
       # no need to save and restore ncurses state
