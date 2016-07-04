@@ -62,12 +62,12 @@ class LayoutManager
   def should_split?
     return false if !has_opened_message?
     case $config[:split_view]
-    when :horizontal
-      Ncurses.rows >= ($config[:split_threshold] || 42)
+    when nil, false
+      false
     when :vertical
       Ncurses.cols >= ($config[:split_threshold] || 160)
-    else
-      false
+    else # :horizontal
+      Ncurses.rows >= ($config[:split_threshold] || 42)
     end
   end
 
