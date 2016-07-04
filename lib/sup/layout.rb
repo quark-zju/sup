@@ -16,12 +16,12 @@ class SplitPolicy
     screen_width = Ncurses.cols
 
     case $config[:split_view]
-    when :horizontal
-      split = [[screen_height / 3, 10].max, screen_height * 2 / 3].min
-      [split * @id, 0, split + (screen_height - 2 * split) * @id, screen_width]
-    else # :vertical
+    when :vertical
       split = [screen_width * 2 / 3, screen_width / 5 - 80].max
       [0, split * @id, screen_height, split + (screen_width - 2 * split) * @id]
+    else # :horizontal
+      split = [[screen_height / 3, 10].max, screen_height * 2 / 3].min
+      [split * @id, 0, split + (screen_height - 2 * split) * @id, screen_width]
     end
   end
 end

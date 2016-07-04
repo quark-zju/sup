@@ -33,27 +33,58 @@ class TextField
 
   def value; @value || get_cursed_value end
 
-  def activate window, y, x, width, question, default=nil, &block
-    @w, @y, @x, @width = window, y, x, width
+  def activate window, y, x, height, width, question, default=nil, &block
+    @w, @y, @x, @height, @width = window, y, x, height, width
+
     @question = question
     @completion_block = block
-    @field = Ncurses::Form.new_field 1, @width - question.length, @y, @x + question.length, 0, 0
+
+    # new_field(int height, int width, int toprow, int leftcol, int offscreen, int nbuffers)
+    @field = Ncurses::Form::FIELD.new 1, @width - question.length, 0, 0, 0, 0
+    @field.set_field_back(Ncurses::A_UNDERLINE | Ncurses::COLOR_RED)
+
+    raise 'cannot create field' if @field.nil?
     if @field.respond_to? :opts_off
       @field.opts_off Ncurses::Form::O_STATIC
       @field.opts_off Ncurses::Form::O_BLANK
     end
-    @form = Ncurses::Form.new_form [@field]
+
+    @form = Ncurses::Form::FORM.new [@field]
+    raise 'cannot create form' if @form.nil?
+
+    # attach form to window
+    @form.set_form_win(@w)
+    # derwin(WINDOW *orig, int nlines, int ncols, int begin_y, int begin_x)
+    @subwin = @w.derwin(1, @width - question.length, 0, question.length)
+    @form.set_form_sub(@subwin)
     @value = default || ''
-    Ncurses::Form.post_form @form
     set_cursed_value @value
+
+    # clear buf
+    @w.mvaddstr 0, 0, @question + ' ' * [@width - @question.length, 0].max
+
+    # calculate form size
+    form_height = []; form_width = []
+    @form.scale_form(form_height, form_width)
+    raise 'askbuf too small' if form_height[0] > @height || form_width[0] > @width
+
+    # activate form
+    @form.post_form
+    position_cursor
   end
 
   def position_cursor
-    @w.attrset Colormap.color_for(:none)
-    @w.mvaddstr @y, 0, @question
+    # show cursor
     Ncurses.curs_set 1
-    form_driver_key Ncurses::Form::REQ_END_FIELD
-    form_driver_key Ncurses::Form::REQ_NEXT_CHAR if @value && @value =~ / $/ # fucking RETARDED
+
+    # draw question
+    @w.attrset Colormap.color_for(:text_color)
+    @w.mvaddstr 0, 0, @question
+    @w.refresh
+
+    # move cursor
+    @form.form_driver Ncurses::Form::REQ_END_LINE
+    @form.form_driver Ncurses::Form::REQ_NEXT_CHAR if @value && @value =~ / $/ # fucking RETARDED
   end
 
   def deactivate
@@ -62,6 +93,10 @@ class TextField
     @form.free_form
     @field.free_field
     @field = nil
+    @form = nil
+    @subwin = nil
+    @w.mvaddstr 0, 0, ' ' * @width
+    @w.refresh
     Ncurses.curs_set 0
   end
 
@@ -148,15 +183,15 @@ class TextField
         Ncurses::Form::REQ_CLR_EOF
       when ?\C-u
         set_cursed_value cursed_value_after_point
-        form_driver_key Ncurses::Form::REQ_END_FIELD
+        @form.form_driver Ncurses::Form::REQ_END_FIELD
         nop
         Ncurses::Form::REQ_BEG_FIELD
       when ?\C-w
         while action = remove_extra_space
           form_driver_key action
         end
-        form_driver_key Ncurses::Form::REQ_PREV_CHAR
-        form_driver_key Ncurses::Form::REQ_DEL_WORD
+        @form.form_driver Ncurses::Form::REQ_PREV_CHAR
+        @form.form_driver Ncurses::Form::REQ_DEL_WORD
       end if ctrl_c.nil?
 
     c.replace(ctrl_c).keycode! if ctrl_c  # no effect for dumb CharCode

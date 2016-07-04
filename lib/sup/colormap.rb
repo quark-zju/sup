@@ -31,6 +31,7 @@ class Colormap
   DEFAULT_COLORS = {
     :text => { :fg => "white", :bg => "black" },
     :status => { :fg => "white", :bg => "blue", :attrs => ["bold"] },
+    :status_inactive => { :fg => "black", :bg => "white" },
     :index_old => { :fg => "white", :bg => "default" },
     :index_new => { :fg => "white", :bg => "default", :attrs => ["bold"] },
     :index_starred => { :fg => "yellow", :bg => "default", :attrs => ["bold"] },

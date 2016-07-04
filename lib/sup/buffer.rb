@@ -5,6 +5,7 @@ require 'thread'
 require 'ncursesw'
 
 require 'sup/util/ncurses'
+require 'sup/layout'
 
 module Redwood
 
@@ -15,15 +16,15 @@ class Buffer
   bool_reader :dirty, :system
   bool_accessor :force_to_top, :hidden
 
-  def initialize window, mode, width, height, opts={}
-    @w = window
+  def initialize mode, opts={}
     @mode = mode
     @dirty = true
     @focus = false
     @title = opts[:title] || ""
     @force_to_top = opts[:force_to_top] || false
     @hidden = opts[:hidden] || false
-    @x, @y, @width, @height = 0, 0, width, height
+    update_window!
+    raise 'something is wrong' unless @x && @y && @width && @height && @w && @mode
     @atime = Time.at 0
     @system = opts[:system] || false
   end
@@ -31,19 +32,25 @@ class Buffer
   def content_height; @height - 1; end
   def content_width; @width; end
 
-  def resize rows, cols
-    return if cols == @width && rows == @height
-    @width = cols
-    @height = rows
-    @dirty = true
-    mode.resize rows, cols
+  def update_window!
+    # let LayoutManager give us a window and its sizes
+    w, y, x, height, width = *LayoutManager.find_window_by_mode(@mode)
+    if [w, y, x, height, width] != [@w, @y, @x, @height, @width]
+      # probably resized
+      mark_dirty
+      @w, @y, @x, @height, @width = w, y, x, height, width
+      # tell mode
+      mode.buffer ||= self
+      mode.resize @height, @width
+      mode.respond_to?(:update) && mode.update
+    end
   end
 
-  def redraw status
+  def redraw
     if @dirty
-      draw status
+      draw
     else
-      draw_status status
+      draw_status
     end
 
     commit
@@ -53,12 +60,12 @@ class Buffer
 
   def commit
     @dirty = false
-    @w.noutrefresh
+    @w.refresh
   end
 
-  def draw status
+  def draw
     @mode.draw
-    draw_status status
+    draw_status
     commit
     @atime = Time.now
   end
@@ -73,7 +80,6 @@ class Buffer
 
     # fill up the line with blanks to overwrite old screen contents
     @w.mvaddstr y, x, " " * maxl unless opts[:no_fill]
-
     @w.mvaddstr y, x, s.slice_by_display_length(maxl)
   end
 
@@ -81,20 +87,62 @@ class Buffer
     @w.clear
   end
 
-  def draw_status status
-    write @height - 1, 0, status, :color => :status_color
+  def draw_status inactive=nil
+    inactive = (BufferManager.focus_buf != self) if inactive.nil?
+    color = inactive ? :status_inactive_color : :status_color
+    write @height - 1, 0, status_text, :color => color
   end
 
   def focus
     @focus = true
     @dirty = true
     @mode.focus
+    draw_status true
   end
 
   def blur
     @focus = false
     @dirty = true
     @mode.blur
+    draw_status false
+  end
+
+  def overlap_with? buf
+    return true if @w == buf.instance_variable_get(:@w)
+    rx, ry, rw, rh = [:@x, :@y, :@width, :@height].map {|x| buf.instance_variable_get x}
+    @x < rx + rw && @x + @width > rx && @y < ry + rh && @y + @height > ry
+  end
+
+  def status_text
+    # unlike status, status_text considers hooks
+    HookManager.run("status-bar-text") { hook_opts } || default_status_bar
+  end
+
+  def title_text
+    # unlike title, title_text considers hooks
+    HookManager.run("terminal-title-text") { hook_opts } || default_terminal_title
+  end
+
+protected
+
+  def default_status_bar
+    " [#{self.mode.name}] #{self.title}   #{self.mode.status}"
+  end
+
+  def default_terminal_title
+    "Sup #{Redwood::VERSION} :: #{self.title}"
+  end
+
+  def hook_opts
+    {
+      :num_inbox => lambda { Index.num_results_for :label => :inbox },
+      :num_inbox_unread => lambda { Index.num_results_for :labels => [:inbox, :unread] },
+      :num_total => lambda { Index.size },
+      :num_spam => lambda { Index.num_results_for :label => :spam },
+      :title => self.title,
+      :mode => self.mode.name,
+      :status => self.mode.status
+    }
   end
 end
 
@@ -156,11 +204,18 @@ EOS
     @sigwinch_mutex = Mutex.new
   end
 
+  def send_key! ch
+    Ncurses.ungetch ch.ord
+    # see Ncurses::CharCode::nonblocking_getwch
+    $sigpipe[1].write(' ') if $sigpipe
+  end
+
   def sigwinch_happened!
     @sigwinch_mutex.synchronize do
       return if @sigwinch_happened
       @sigwinch_happened = true
-      Ncurses.ungetch ?\C-l.ord
+      # indirectly calls completely_redraw_screen
+      send_key! ?\C-l
     end
   end
 
@@ -242,49 +297,47 @@ EOS
     @sigwinch_mutex.synchronize { @sigwinch_happened = false }
     debug "new screen size is #{Ncurses.rows} x #{Ncurses.cols}"
 
-    status, title = get_status_and_title(@focus_buf) # must be called outside of the ncurses lock
+    draw_screen :clear => true, :refresh => true, :dirty => true, :sync => true
 
-    Ncurses.sync do
-      @dirty = true
-      Ncurses.clear
-      draw_screen :sync => false, :status => status, :title => title
+    # don't know why but a second non-clear draw will resolve some blank screens
+    draw_screen :clear => false, :refresh => true, :dirty => true, :sync => true
+  end
+
+  def draw_title
+    @focus_buf.title_text.tap do |title|
+      # http://rtfm.etla.org/xterm/ctlseq.html (see Operating System Controls)
+      print "\033]0;#{title}\07" if title && @in_x && title != @last_title
+      @last_title = title
     end
   end
 
   def draw_screen opts={}
     return if @shelled
 
-    status, title =
-      if opts.member? :status
-        [opts[:status], opts[:title]]
-      else
-        raise "status must be supplied if draw_screen is called within a sync" if opts[:sync] == false
-        get_status_and_title @focus_buf # must be called outside of the ncurses lock
-      end
+    draw_title
 
-    ## http://rtfm.etla.org/xterm/ctlseq.html (see Operating System Controls)
-    print "\033]0;#{title}\07" if title && @in_x
+    # resize minibuf
+    LayoutManager.minibuf_height = minibuf_lines
 
     Ncurses.mutex.lock unless opts[:sync] == false
+
+    Ncurses.clear if opts[:clear]
 
     ## disabling this for the time being, to help with debugging
     ## (currently we only have one buffer visible at a time).
     ## TODO: reenable this if we allow multiple buffers
-    false && @buffers.inject(@dirty) do |dirty, buf|
-      buf.resize Ncurses.rows - minibuf_lines, Ncurses.cols
-      #dirty ? buf.draw : buf.redraw
-      buf.draw status
-      dirty
+
+    drawn_buffers = []
+
+    ([@focus_buf] + @buffers.reverse).each do |buf|
+      buf.update_window!
+      next if drawn_buffers.any? {|rhs| buf.overlap_with? rhs}
+      buf.mark_dirty if @dirty || opts[:dirty]
+      buf.draw
+      drawn_buffers << buf
     end
 
-    ## quick hack
-    if true
-      buf = @buffers.last
-      buf.resize Ncurses.rows - minibuf_lines, Ncurses.cols
-      @dirty ? buf.draw(status) : buf.redraw(status)
-    end
-
-    draw_minibuf :sync => false unless opts[:skip_minibuf]
+    draw_minibuf sync: false, refresh: true unless opts[:skip_minibuf]
 
     @dirty = false
     Ncurses.doupdate
@@ -318,17 +371,8 @@ EOS
       num += 1
     end
 
-    width = opts[:width] || Ncurses.cols
-    height = opts[:height] || Ncurses.rows - 1
-
-    ## since we are currently only doing multiple full-screen modes,
-    ## use stdscr for each window. once we become more sophisticated,
-    ## we may need to use a new Ncurses::WINDOW
-    ##
-    ## w = Ncurses::WINDOW.new(height, width, (opts[:top] || 0),
-    ## (opts[:left] || 0))
-    w = Ncurses.stdscr
-    b = Buffer.new w, mode, width, height, :title => realtitle, :force_to_top => opts[:force_to_top], :system => opts[:system]
+    # Buffer's window object is obtained from LayoutManager
+    b = Buffer.new mode, :title => realtitle, :force_to_top => opts[:force_to_top], :system => opts[:system]
     mode.buffer = b
     @name_map[realtitle] = b
 
@@ -535,23 +579,23 @@ EOS
     raise "impossible!" if @asking
     raise "Question too long" if Ncurses.cols <= question.length
     @asking = true
+    @question = question
 
     @textfields[domain] ||= TextField.new
     tf = @textfields[domain]
     completion_buf = nil
 
-    status, title = get_status_and_title @focus_buf
-
+    w, top, left, height, width = LayoutManager['minibuf']
     Ncurses.sync do
-      tf.activate Ncurses.stdscr, Ncurses.rows - 1, 0, Ncurses.cols, question, default, &block
+      # draw_screen will update minibuf height
       @dirty = true # for some reason that blanks the whole fucking screen
-      draw_screen :sync => false, :status => status, :title => title
-      tf.position_cursor
-      Ncurses.refresh
+      draw_screen :sync => false
+      tf.activate w, top, left, height, width, question, default, &block
     end
 
+    w.keypad 1
     while true
-      c = Ncurses::CharCode.get
+      c = Ncurses::CharCode.get(win: w)
       next unless c.present? # getch timeout
       break unless tf.handle_input c # process keystroke
 
@@ -572,7 +616,7 @@ EOS
         tf.position_cursor
       end
 
-      Ncurses.sync { Ncurses.refresh }
+      Ncurses.sync { w.refresh }
     end
 
     kill_buffer completion_buf if completion_buf
@@ -581,7 +625,7 @@ EOS
     @asking = false
     Ncurses.sync do
       tf.deactivate
-      draw_screen :sync => false, :status => status, :title => title
+      draw_screen :sync => false
     end
     tf.value.tap { |x| x }
   end
@@ -591,20 +635,22 @@ EOS
 
     accept = accept.split(//).map { |x| x.ord } if accept
 
-    status, title = get_status_and_title @focus_buf
+    @asking = true
+    w, top, left, height, width = *LayoutManager['minibuf']
     Ncurses.sync do
-      draw_screen :sync => false, :status => status, :title => title
-      Ncurses.mvaddstr Ncurses.rows - 1, 0, question
-      Ncurses.move Ncurses.rows - 1, question.length + 1
+      draw_screen :sync => false
+      w.attrset Colormap.color_for(:text_color)
+      w.mvaddstr 0, 0, question + ' ' * [(width - question.length), 0].max
+      w.move 0, question.length + 1
       Ncurses.curs_set 1
-      Ncurses.refresh
+      w.refresh
     end
 
-    @asking = true
     ret = nil
     done = false
     until done
-      key = Ncurses::CharCode.get
+      w.move 0, question.length + 1
+      key = Ncurses::CharCode.get(win: w)
       next if key.empty?
       if key.is_keycode? Ncurses::KEY_CANCEL
         done = true
@@ -617,7 +663,7 @@ EOS
     @asking = false
     Ncurses.sync do
       Ncurses.curs_set 0
-      draw_screen :sync => false, :status => status, :title => title
+      draw_screen :sync => false
     end
 
     ret
@@ -657,26 +703,27 @@ EOS
   def minibuf_lines
     @minibuf_mutex.synchronize do
       [(@flash ? 1 : 0) +
-       (@asking ? 1 : 0) +
        @minibuf_stack.compact.size, 1].max
     end
   end
 
   def draw_minibuf opts={}
-    m = nil
+    lines = [*@flash]
     @minibuf_mutex.synchronize do
-      m = @minibuf_stack.compact
-      m << @flash if @flash
-      m << "" if m.empty? unless @asking # to clear it
+      lines += @minibuf_stack.compact.reverse
     end
+    lines << '' if lines.empty?  # to clear it
 
     Ncurses.mutex.lock unless opts[:sync] == false
-    Ncurses.attrset Colormap.color_for(:text_color)
-    adj = @asking ? 2 : 1
-    m.each_with_index do |s, i|
-      Ncurses.mvaddstr Ncurses.rows - i - adj, 0, s + (" " * [Ncurses.cols - s.length, 0].max)
+
+    w, top, left, height, width = *LayoutManager['minibuf']
+    w.attrset Colormap.color_for(:text_color)
+    lines.each.with_index do |s, i|
+      next if i == 0 && @asking
+      w.mvaddstr i, 0, s + (' ' * [width - s.length, 0].max)
     end
-    Ncurses.refresh if opts[:refresh]
+    w.refresh if opts[:refresh]
+
     Ncurses.mutex.unlock unless opts[:sync] == false
   end
 
@@ -757,23 +804,6 @@ private
 
   def default_terminal_title buf
     "Sup #{Redwood::VERSION} :: #{buf.title}"
-  end
-
-  def get_status_and_title buf
-    opts = {
-      :num_inbox => lambda { Index.num_results_for :label => :inbox },
-      :num_inbox_unread => lambda { Index.num_results_for :labels => [:inbox, :unread] },
-      :num_total => lambda { Index.size },
-      :num_spam => lambda { Index.num_results_for :label => :spam },
-      :title => buf.title,
-      :mode => buf.mode.name,
-      :status => buf.mode.status
-    }
-
-    statusbar_text = HookManager.run("status-bar-text", opts) || default_status_bar(buf)
-    term_title_text = HookManager.run("terminal-title-text", opts) || default_terminal_title(buf)
-
-    [statusbar_text, term_title_text]
   end
 
   def users
