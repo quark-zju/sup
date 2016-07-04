@@ -1,12 +1,16 @@
 # patchwork database
 
 require 'active_record'
+require 'fileutils'
+require 'pathname'
 require 'sqlite3'
 require 'xmlrpc/client'
 
 SCRIPT_DIR = File.expand_path(File.dirname(File.dirname(__FILE__)))
+BASE_DIR = Pathname.new(ENV["SUP_BASE"] || '~/.sup').expand_path.join('patchwork')
+BASE_DIR.mkpath
 
-ActiveRecord::Base.establish_connection(adapter: 'sqlite3', database: File.expand_path('~/.sup/patchwork.db'))
+ActiveRecord::Base.establish_connection(adapter: 'sqlite3', database: BASE_DIR.join('pwdb.sqlite3').to_s)
 ActiveRecord::Migrator.migrate(File.join(SCRIPT_DIR, 'db/migrate'))
 ActiveRecord::Base.logger = Logger.new(STDERR)
 ActiveRecord::Base.logger.level = (ENV['LOGLEVEL'] || Logger::WARN).to_i
@@ -80,6 +84,28 @@ class Patch < ActiveRecord::Base
     text.join(' ')
   end
 
+  def content
+    download.read
+  end
+
+  def download overwrite: false
+    # return path
+    full_path.tap do |path|
+      next if path.exist? && !overwrite
+      path.dirname.mkpath
+      content = Patch.rpc.call(:patch_get_mbox, id)
+      path.write content
+    end
+  end
+
+  def download!
+    download overwrite: true
+  end
+
+  def full_path
+    Patch.patch_dir.join([id, submitter && submitter.name.split.first.downcase, filename].compact.join('-'))
+  end
+
   def self.fetch(start_id = 0, count = 500, **filter)
     self.transaction do
       rpc.call(:patch_list, max_count: count, id__gte: start_id, **filter).each do |data|
@@ -93,6 +119,10 @@ class Patch < ActiveRecord::Base
         end
       end
     end
+  end
+
+  def self.patch_dir
+    @patch_dir ||= BASE_DIR.join('patches')
   end
 
   def self.fetch_all(start_id = nil)
@@ -116,6 +146,7 @@ class Patch < ActiveRecord::Base
   end
 
   def self.rpc
+    # see https://github.com/getpatchwork/patchwork/blob/master/patchwork/views/xmlrpc.py for the API
     @rpc ||= \
       begin
         config = Hash[File.read(File.expand_path('~/.pwclientrc')).lines.map{|l|l.chomp.split(/[:=]\s*/,2)}.select{|l|l.size==2}]
