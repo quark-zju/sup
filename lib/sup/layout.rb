@@ -63,7 +63,7 @@ class LayoutManager
     return false if !has_opened_message?
     case $config[:split_view]
     when :horizontal
-      Ncurses.rows >= ($config[:split_threshold] || 60)
+      Ncurses.rows >= ($config[:split_threshold] || 42)
     when :vertical
       Ncurses.cols >= ($config[:split_threshold] || 160)
     else

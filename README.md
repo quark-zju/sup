@@ -2,12 +2,13 @@
 
 Sup is a console-based email client for people with a lot of email.
 
-![Screenshot](/screenshot/thread-index-mode.png?raw=true)
+![Screenshot](/screenshot/split-horizontal.png?raw=true)
 
 ## New features in this fork
 
 - [Patchwork](http://jk.ozlabs.org/projects/patchwork/) integration. As the `.`, `o`, `x` in the screenshot, patch states can be easily observed.
-- Better GUI editor support. You can edit multiple messages and browse other emails in Sup concurrently.
+- Async GUI editor support. You can edit multiple messages and browse other emails in Sup concurrently.
+- Split view (experimental). By setting `:split_view` to `:vertical` or `:horizontal`, you can have more buffers in one screen.
 - More flexible hooks. New hooks like `text-filter`, `collapsed-header` make things more flexible.
 - Various fixes and improvements. For example, respect editor's exit code, no more "bundle exec", better cygwin support, etc. Read commit log for details.
 
