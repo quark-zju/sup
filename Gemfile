@@ -6,3 +6,9 @@ if !RbConfig::CONFIG['arch'].include?('openbsd')
 end
 
 gemspec
+
+# other gems (like pry-remote) for local debugging
+(File.read(File.join(File.dirname(__FILE__), '.localgems')).each_line rescue []).each do |line|
+  gemname, version = line.split
+  gem gemname, version
+end
