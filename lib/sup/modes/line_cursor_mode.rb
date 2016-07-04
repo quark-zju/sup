@@ -58,8 +58,14 @@ protected
     raise @curpos.inspect unless @curpos.is_a?(Integer)
     c = @curpos.clamp topline, botline - 1
     c = @cursor_top if c < @cursor_top
-    buffer.mark_dirty unless c == @curpos
-    @curpos = c
+    if c != @curpos
+      buffer.mark_dirty
+      # try to handle curpos changes due to resize
+      jump_to_line @topline + (@curpos - c) if c < @curpos
+      # recalculate c
+      c = @curpos.clamp topline, botline - 1
+      @curpos = c
+    end
   end
 
   def set_cursor_pos p
