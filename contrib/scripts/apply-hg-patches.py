@@ -6,6 +6,7 @@ import sys
 
 from subprocess import Popen, PIPE
 
+nodeidre = re.compile(r'^# Node ID\s+([a-f0-9]{40})', re.M)
 parentre = re.compile(r'^# Parent\s+([a-f0-9]{40})', re.M)
 numre = re.compile(r'^[0-9]*')
 
@@ -27,6 +28,11 @@ def run(args, check=True, log=True):
         raise RuntimeError("Failed to run hg %s" % ' '.join(args))
     return retcode, (out, err)
 
+def extract_nodeid(content):
+    m = nodeidre.search(content)
+    if m:
+        return m.group(1)
+
 def extract_parent(content):
     m = parentre.search(content)
     if m:
@@ -41,8 +47,28 @@ def extract_title(content):
             return line
     return '<unknown title>'
 
+def get_bookmark_name(filename):
+    # input: 15693-yuya-commandserver-extract-method-to-create-commandserver-instance-per-request.patch
+    # output: p15693-yuya-commandserver
+    s = os.path.basename(filename)
+    return 'p' + '-'.join(re.sub('\d+-of-\d+-', '', s).split('-')[0:3])
+
 def read_titles(filenames):
     return [extract_title(open(path).read()) for path in filenames]
+
+def reorder_files(filenames):
+    # patchwork id is not guaranteed to be patch order
+    # analyse parent id and node id, reorder files passed in them
+    contents = [open(f).read() for f in filenames]
+    nodeids = map(extract_nodeid, contents)
+    parents=map(extract_parent, contents)
+    new_filenames = []
+    while len(new_filenames) < len(filenames):
+        # find parents not in node ids
+        idx = [i for i, p in enumerate(parents) if p and p not in nodeids][0]
+        new_filenames.append(filenames[idx])
+        parents[idx] = nodeids[idx] = None
+    return new_filenames
 
 def apply_patches(dest, filenames):
     if not filenames:
@@ -50,6 +76,8 @@ def apply_patches(dest, filenames):
         return
 
     os.chdir(dest)
+
+    filenames = reorder_files(filenames)
 
     # write filenames for easier manual inspection
     with open('/tmp/plist', 'w') as f:
@@ -67,7 +95,7 @@ def apply_patches(dest, filenames):
         ret = run(['hg', 'update', '-C', ref], check=False)
 
     # create a bookmark
-    bkname = 'p%d' % to_i(os.path.basename(filenames[0]))
+    bkname = get_bookmark_name(filenames[0])
     run(['hg', 'bookmark', '-f', bkname])
 
     # apply patches
@@ -80,4 +108,6 @@ def apply_patches(dest, filenames):
     return 0 if ret == 1 else ret
 
 dest = os.path.expanduser(os.environ.get('PATCH_DEST', '~/hg-draft'))
-sys.exit(int(apply_patches(dest, sys.argv[1:])))
+filenames = sys.argv[1:]
+
+sys.exit(int(apply_patches(dest, filenames)))
