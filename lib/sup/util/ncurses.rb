@@ -19,7 +19,10 @@ module Ncurses
       loop do
         fds = IO.select([$stdin, $sigpipe[0]], nil, nil, 2).try {|x| x[0]}
         # interrupted by sigpipe, but no real input comes in
-        break if fds == [$sigpipe[0]]
+        if fds == [$sigpipe[0]]
+          $sigpipe[0].read(1)
+          break
+        end
         s, c = Redwood::BufferManager.shelled? ? Ncurses.sync { nil } : (win || Ncurses).get_wch
         break if s != Ncurses::ERR
       end
