@@ -20,15 +20,15 @@ module ::PatchworkDatabase
 module PatchResource
   def self.included(resource)
     resource.has_many :patches
-    def resource.from_patchdata(patch_data)
+    def resource.from_patchrpcobj(rpcobj)
       @resource_name ||= self.name.split('::').last.downcase
-      id = patch_data["#{@resource_name}_id"]
-      raise "#{@resource_name}_id is nil in #{patch_data}" if id.nil?
+      id = rpcobj["#{@resource_name}_id"]
+      raise "#{@resource_name}_id is nil in #{rpcobj}" if id.nil?
       @cache ||= {}
       @cache[id] ||= \
         begin
-          name = patch_data[@resource_name]
-          raise "#{@resource_name} is nil in #{patch_data}" if name.nil?
+          name = rpcobj[@resource_name]
+          raise "#{@resource_name} is nil in #{rpcobj}" if name.nil?
           where(id: id).first_or_create!(name: name)
         end
     end
@@ -117,19 +117,39 @@ class Patch < ActiveRecord::Base
     download overwrite: true
   end
 
+  def change_state! new_state_text, old_state_text: 'New'
+    # push new state to patchwork server
+    # get a fresh new patchrpcobj object from the server and check its state first
+    if old_state_text
+      patchrpcobj = Patch.rpc.call :patch_get, id
+      old_state = State.find_by!(name: old_state_text)
+      raise "State '#{patchrpcobj['state']}' is not the expected '#{old_state_text}'" if patchrpcobj['state'] != old_state_text
+    end
+
+    # prepare payload to update
+    new_state = State.find_by!(name: new_state_text)
+    Patch.rpc.call :patch_set, id, state: new_state.id
+    self.state = new_state
+    save!
+  end
+
   def full_path
     Patch.patch_dir.join([id, submitter && submitter.name.split.first.downcase, filename].compact.join('-'))
+  end
+
+  def fill_with_patchrpcobj(rpcobj)
+    self.delegate  = Delegate.from_patchrpcobj(rpcobj)
+    self.project   = Project.from_patchrpcobj(rpcobj)
+    self.state     = State.from_patchrpcobj(rpcobj)
+    self.submitter = Submitter.from_patchrpcobj(rpcobj)
+    self.update_attributes rpcobj.select {|k| %w[id commit_ref date filename msgid name].include?(k)}
   end
 
   def self.fetch(start_id = 0, count = 500, **filter)
     self.transaction do
       rpc.call(:patch_list, max_count: count, id__gte: start_id, **filter).each do |data|
         where(id: data["id"]).first_or_initialize.tap do |patch|
-          patch.delegate  = Delegate.from_patchdata(data)
-          patch.project   = Project.from_patchdata(data)
-          patch.state     = State.from_patchdata(data)
-          patch.submitter = Submitter.from_patchdata(data)
-          patch.update_attributes data.select {|k| %w[id commit_ref date filename msgid name].include?(k)}
+          patch.fill_with_patchrpcobj(data)
           patch.save!
         end
       end
@@ -166,6 +186,8 @@ class Patch < ActiveRecord::Base
       begin
         config = Hash[File.read(File.expand_path('~/.pwclientrc')).lines.map{|l|l.chomp.split(/[:=]\s*/,2)}.select{|l|l.size==2}]
         uri = URI(config['url'])
+        uri.user ||= config['username']
+        uri.password ||= config['password']
         XMLRPC::Client.new2(uri).tap do |server|
           # hack: patchwork returns text/html while it should return text/xml
           # ruby stdlib has check on it and will raise errors. wrap it to silent the error
