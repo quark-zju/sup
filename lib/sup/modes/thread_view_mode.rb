@@ -323,6 +323,10 @@ EOS
     end
   end
 
+  def current_message
+    @message_lines[curpos]
+  end
+
   def edit_labels
     old_labels = @thread.labels
     reserved_labels = old_labels.select { |l| LabelManager::RESERVED_LABELS.include? l }
