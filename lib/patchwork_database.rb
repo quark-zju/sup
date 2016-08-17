@@ -117,13 +117,17 @@ class Patch < ActiveRecord::Base
     download overwrite: true
   end
 
-  def change_state! new_state_text, old_state_text: 'New'
+  def change_state! new_state_text, old_state_text: 'New', submitter_name: nil
     # push new state to patchwork server
     # get a fresh new patchrpcobj object from the server and check its state first
     if old_state_text
       patchrpcobj = Patch.rpc.call :patch_get, id
       old_state = State.find_by!(name: old_state_text)
       raise "State '#{patchrpcobj['state']}' is not the expected '#{old_state_text}'" if patchrpcobj['state'] != old_state_text
+    end
+
+    if submitter_name
+      raise "Submitter name #{submitter.name} does not match" if submitter.name =~ submitter_name
     end
 
     # prepare payload to update
