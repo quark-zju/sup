@@ -286,9 +286,9 @@ EOS
     command << ' $FILE' unless command[/\$FILE\b/]
     command.gsub! /\$FILE\b/, Shellwords.escape(filepath)
     if is_gui && !$opts[:no_threads]
-      ::Thread.new { start_edit command, filepath, is_gui }
+      ::Thread.new { start_edit command, filepath, is_gui, old_from }
     else
-      start_edit command, filepath, is_gui
+      start_edit command, filepath, is_gui, old_from
     end
   end
 
@@ -378,7 +378,7 @@ EOS
 
 protected
 
-  def start_edit command, filepath, is_gui
+  def start_edit command, filepath, is_gui, old_from
     mtime = File.mtime filepath
 
     @editing = true
