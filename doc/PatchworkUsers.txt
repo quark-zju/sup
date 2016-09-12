@@ -1,0 +1,56 @@
+This is for users who want to use the Patchwork database without sup, and who
+may know little about Ruby or Rails.
+
+To install patchwork deps:
+
+- install bundler, which is the de-facto package manager of Ruby
+  use your distro's package manager
+- install sqlite-dev, which is required to build the sqlite3 ruby gem.
+  use your distro package manager
+- "touch .nosup"
+  ignore sup related deps, so only patchwork related deps will be installed
+- run "bundle install"
+  install dependencies
+- prepare ~/.pwclientrc
+  get it from, for example, https://patchwork.mercurial-scm.org/pwclient/
+- run ./bin/sup-patchwork-sync
+  it will take some time to populate the local database
+- run ./bin/sup-patchwork-cli so you are in a Rails REPL that can use the
+  patchwork stuff. see examples below.
+- most code is in lib/patchwork_database.rb and is easily hackable if you
+  know Ruby or Rails.
+- you can build other small scripts by copying bin/sup-patchwork*
+
+To sync database incrementally:
+
+- run ./bin/sup-patchwork-sync
+- Patch.sync!
+
+To do basic things (from the REPL):
+
+- get a patch
+  p = Patch.find(patchid)
+
+- find last 10 patch with title containing "chg"
+  ps = Patch.where('name like ?', '%chg%').last(10)
+
+- find unreviewed patches
+  ps = Patch.queuing
+  ps = Patch.queuing.last(10)
+  ps = Patch.queuing.first(10)
+
+- print patches in a table format
+  tp ps
+  tp ps, 'name', 'date', 'state_id'
+
+- update status of a patch
+  p.change_state! 'Change Requested' # won't work if the state is not "New"
+  p.change_state! 'Under Review', old_state_text: nil # skip the state check
+
+- update states in batch
+  ps.each { |p| p.change_state! 'Under Review' }
+
+- download a patch, and see its content
+  path = p.download
+  s = path.read
+  puts s

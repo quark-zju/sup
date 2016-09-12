@@ -22,3 +22,4 @@ test/gnupg_test_home/private-keys-v1.d
 
 # flag files
 .nobundle
+.nosup
