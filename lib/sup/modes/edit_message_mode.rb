@@ -417,7 +417,7 @@ protected
   end
 
   def decorate_editing_line line
-    if @editing
+    if @editing && line.is_a?(String)
       [[:editing_frozen_text_color, line]]
     else
       line
