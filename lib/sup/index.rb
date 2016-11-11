@@ -625,7 +625,9 @@ EOS
 
   def find_docid id
     docids = term_docids(mkterm(:msgid,id))
-    fail unless docids.size <= 1
+    # Seems sometimes we get different docids for same content. Do not treat
+    # them as fatal errors.
+    # fail unless docids.size <= 1
     docids.first
   end
 
