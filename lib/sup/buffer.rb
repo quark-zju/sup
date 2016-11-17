@@ -74,7 +74,7 @@ class Buffer
   def write y, x, s, opts={}
     return if x >= @width || y >= @height
 
-    @w.attrset Colormap.color_for(opts[:color] || :none, opts[:highlight])
+    @w.attrset Colormap.color_for(opts[:color] || :none, opts[:highlight], !@focus)
     s ||= ""
     maxl = @width - x # maximum display width width
 
