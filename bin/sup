@@ -103,6 +103,7 @@ global_keymap = Keymap.new do |k|
   k.add :show_inbox, "Show the Inbox buffer", 'I'
   k.add :clear_hooks, "Clear all hooks", 'H'
   k.add :show_console, "Show the Console buffer", '~'
+  k.add :roll_front_buffers, "Switch to next front (split) buffer", :ctrl_t
 
   ## Submap for less often used keybindings
   k.add_multi "reload (c)olors, rerun (k)eybindings hook", 'O' do |kk|
@@ -344,6 +345,8 @@ begin
       end
     when :show_inbox
       BufferManager.raise_to_front ibuf
+    when :roll_front_buffers
+      BufferManager.focus_on BufferManager.next_front_buffer
     when :clear_hooks
       HookManager.clear
     when :show_console
