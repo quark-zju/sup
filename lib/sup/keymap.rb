@@ -28,8 +28,9 @@ EOS
     when :backspace then Ncurses::KEY_BACKSPACE
     when :home then Ncurses::KEY_HOME
     when :end then Ncurses::KEY_END
-    when :ctrl_l then "\f".ord
+    when :ctrl_l then "\f".ord # ('l'.ord-'a'.ord+1).chr
     when :ctrl_g then "\a".ord
+    when :ctrl_t then "\x14".ord
     when :tab then "\t".ord
     when :enter, :return then 10 #Ncurses::KEY_ENTER
     else
