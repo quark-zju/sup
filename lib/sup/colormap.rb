@@ -106,8 +106,14 @@ class Colormap
     @entries[sym] = [fg, bg, attrs, nil]
 
     if not highlight
+      # create highlight on demand
       highlight = highlight_sym(sym)
-      @entries[highlight] = highlight_for(fg, bg, attrs) + [nil]
+      highlight_schema = highlight_for(fg, bg, attrs)
+      @entries[highlight] = highlight_schema + [nil]
+
+      # create "inactive" for "highlight"s automatically
+      inactive_schema = inactive_for(*highlight_schema)
+      @entries["#{highlight}_inactive".to_sym] = inactive_schema + [nil]
     end
 
     @highlights[sym] = highlight
@@ -149,8 +155,17 @@ class Colormap
     [hfg, hbg, hattrs]
   end
 
-  def color_for sym, highlight=false
+  def inactive_for fg, bg, attrs
+    ifg = Ncurses::COLOR_BLACK
+    ibg = Ncurses::COLOR_WHITE
+    [ifg, ibg, attrs]
+  end
+
+  def color_for sym, highlight=false, inactive=true
     sym = @highlights[sym] if highlight
+    if inactive && @entries.key?("#{sym}_inactive".to_sym)
+      sym = "#{sym}_inactive".to_sym
+    end
     return Ncurses::COLOR_BLACK if sym == :none
     raise ArgumentError, "undefined color #{sym}" unless @entries.member? sym
 
