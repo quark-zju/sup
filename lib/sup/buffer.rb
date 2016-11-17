@@ -190,7 +190,7 @@ Return value: an array of email address strings.
 EOS
 
   def initialize
-    @name_map = {}
+    @name_map = {}  # {title: Buffer}
     @buffers = []
     @focus_buf = nil
     @dirty = true
