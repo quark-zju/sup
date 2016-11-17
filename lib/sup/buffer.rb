@@ -224,6 +224,24 @@ EOS
   def buffers; @name_map.to_a; end
   def shelled?; @shelled; end
 
+  def front_buffers
+    # return an array of visible buffers in the current split view
+    # group buffers by pos (y, x)
+    grouped = @name_map.values.group_by { |buf| [buf.y, buf.x] }
+    # sort by pos, for each group, only return the most recent (visible) buffer
+    grouped.sort_by(&:first). map { |pos, bufs| bufs.max_by(&:atime) }
+  end
+
+  def next_front_buffer
+    bufs = front_buffers
+    index = bufs.index(@focus_buf)
+    if index
+      bufs[(index + 1) % bufs.size]
+    else
+      bufs[0]
+    end
+  end
+
   def focus_on buf
     return unless @buffers.member? buf
     return if buf == @focus_buf
