@@ -794,6 +794,20 @@ EOS
     super
   end
 
+  def handle_mouse_event mev
+    case mev.bstate
+    when Ncurses::BUTTON3_CLICKED # right click
+      y = mev.y + topline
+      t = @threads[y]
+      if t
+        @mutex.synchronize { @tags.toggle_tag_for t }
+        update_text_for_line y
+      end
+    else
+      super mev
+    end
+  end
+
 protected
 
   def add_or_unhide m
