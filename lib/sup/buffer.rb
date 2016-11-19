@@ -286,13 +286,25 @@ EOS
     @buffers.select { |b| !(b.system? || b.hidden?) || @buffers.last == b }
   end
 
-  def handle_input c
-    if @focus_buf
-      if @focus_buf.mode.in_search? && c != CONTINUE_IN_BUFFER_SEARCH_KEY
-        @focus_buf.mode.cancel_search!
-        @focus_buf.mark_dirty
+  def handle_input c # called by bin/sup
+    mev = c.mouseevent
+    if mev
+      buf = front_buffers.find { |b| (b.y <= mev.y && b.y + b.height > mev.y && b.x <= mev.x && b.x + b.width > mev.x) }
+      if buf
+        focus_on buf if @focus_buf != buf
+        mev.y -= buf.y
+        mev.x -= buf.x
+        buf.mode.handle_mouse_event mev
       end
-      @focus_buf.mode.handle_input c
+      true # bin/sup does not need to try anything else
+    else
+      if @focus_buf
+        if @focus_buf.mode.in_search? && c != CONTINUE_IN_BUFFER_SEARCH_KEY
+          @focus_buf.mode.cancel_search!
+          @focus_buf.mark_dirty
+        end
+        @focus_buf.mode.handle_input c
+      end
     end
   end
 

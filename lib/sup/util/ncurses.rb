@@ -9,6 +9,7 @@ module Ncurses
     ## Status code allows us to detect
     ## printable characters and control codes.
     attr_reader :status
+    attr_reader :mouseevent
 
     ## Reads character from user input.
     def self.nonblocking_getwch(win=nil)
@@ -62,7 +63,13 @@ module Ncurses
     def self.get handle_interrupt=true, win: nil
       begin
         status, code = nonblocking_getwch(win)
-        generate code, status
+        generate(code, status).tap do |c|
+          if code == Ncurses::KEY_MOUSE
+            mev = Ncurses::MEVENT.new
+            (win || Ncurses).getmouse(mev)
+            c.instance_eval { @mouseevent = mev }
+          end
+        end
       rescue Interrupt => e
         raise e unless handle_interrupt
         keycode Ncurses::KEY_CANCEL

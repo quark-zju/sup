@@ -55,9 +55,16 @@ class Mode
   end
 
   def handle_input c
-    action = resolve_input(c) or return false
-    send action
-    true
+    if c.mouseevent # the caller should call handle_mouse_event instead
+      false
+    else
+      action = resolve_input(c) or return false
+      send action
+      true
+    end
+  end
+
+  def handle_mouse_event mev
   end
 
   def help_text

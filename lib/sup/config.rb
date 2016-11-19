@@ -36,6 +36,7 @@ module ::Redwood
       :hidden_labels => [],
       :show_startup_progress => true,
       :split_view => false, # :vertical or :horizontal
+      :mouse => true,
     }
     if File.exist? filename
       config = Redwood::load_yaml_obj filename
