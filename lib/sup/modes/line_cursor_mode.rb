@@ -38,6 +38,22 @@ class LineCursorMode < ScrollMode
     set_status
   end
 
+  def handle_mouse_event mev
+    super mev
+    y = [mev.y + topline, lines - 1].min
+    case mev.bstate
+    when Ncurses::BUTTON1_CLICKED
+      set_cursor_pos y
+      true
+    when Ncurses::BUTTON1_DOUBLE_CLICKED
+      set_cursor_pos y
+      handle_input "\n"
+      true
+    else
+      false
+    end
+  end
+
 protected
 
   ## callbacks when the cursor is asked to go beyond the bottom

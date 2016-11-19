@@ -55,6 +55,10 @@ class Mode
   end
 
   def handle_input c
+    # syntactic sugar to accept a plain string
+    unless c.is_a?(Ncurses::CharCode)
+      return handle_input Ncurses::CharCode.character("\n")
+    end
     if c.mouseevent # the caller should call handle_mouse_event instead
       false
     else
