@@ -102,7 +102,6 @@ global_keymap = Keymap.new do |k|
   k.add :recall_draft, "Edit most recent draft message", 'R'
   k.add :show_inbox, "Show the Inbox buffer", 'I'
   k.add :clear_hooks, "Clear all hooks", 'H'
-  k.add :show_console, "Show the Console buffer", '~'
   k.add :roll_front_buffers, "Switch to next front (split) buffer", :ctrl_t
 
   ## Submap for less often used keybindings
@@ -350,9 +349,6 @@ begin
       BufferManager.focus_on BufferManager.next_front_buffer
     when :clear_hooks
       HookManager.clear
-    when :show_console
-      b, new = bm.spawn_unless_exists("Console", :system => true) { ConsoleMode.new }
-      b.mode.run
     when :reload_colors
       Colormap.reset
       Colormap.populate_colormap
