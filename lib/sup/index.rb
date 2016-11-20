@@ -33,6 +33,18 @@ class Notmuch
   include Redwood::Singleton
 
   # low-level
+  def get_config(name)
+    run('config', 'get', name).lines.map(&:chomp)
+  end
+
+  def set_config(name, value)
+    run('config', 'set', name, [*value].join(';'))
+  end
+
+  def poll
+    run('new', '--quiet')
+  end
+
   def count(*query)
     run('count', *query).to_i
   end
