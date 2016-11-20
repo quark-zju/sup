@@ -91,8 +91,8 @@ protected
         else
           query = Index.parse_query search_string
         end
-        total = Index.num_results_for :qobj => query[:qobj]
-        unread = Index.num_results_for :qobj => query[:qobj], :label => :unread
+        total = Notmuch.count(query)
+        unread = Notmuch.count(query, :label => :unread)
       rescue Index::ParseError => e
         BufferManager.flash "Problem: #{e.message}!"
         total = 0
