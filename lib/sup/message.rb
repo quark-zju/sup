@@ -41,7 +41,7 @@ class Message
 
   attr_reader :id, :date, :from, :subj, :refs, :replytos, :to,
               :cc, :bcc, :labels, :attachments, :list_address, :recipient_email, :replyto,
-              :list_subscribe, :list_unsubscribe
+              :list_subscribe, :list_unsubscribe, :thread_id, :filename
 
   bool_reader :dirty, :dirty_labels, :source_marked_read, :snippet_contains_encrypted_content
 
@@ -60,13 +60,18 @@ class Message
     @encrypted = false
     @chunks = nil
     @attachments = []
+    @thread_id = opts[:tid]
 
     ## we need to initialize this. see comments in parse_header as to
     ## why.
     @refs = []
 
-    #parse_header(opts[:header] || @source.load_header(@source_info))
-    @filename = nil
+    @filename = opts[:filename]
+    if opts[:json]
+      load_from_json! opts[:json] # notmuch json format
+    elsif opts[:header]
+      parse_header(opts[:header])
+    end
   end
 
   def load_from_json! mjson
@@ -186,12 +191,9 @@ class Message
 
   def add_ref ref
     @refs << ref
-    # @dirty = true
   end
 
   def remove_ref ref
-    # TODO notmuch ?
-    # @dirty = true if
     @refs.delete ref
   end
 
@@ -347,9 +349,11 @@ EOS
   end
 
   def sync_back
-    @locations.map { |l| l.sync_back @labels, self }.any? do
-      UpdateManager.relay self, :updated, self
-    end
+    sync_back_labels
+  end
+
+  def sync_back_labels
+    self.class.sync_back_labels [self]
   end
 
   def self.sync_back_labels messages
@@ -827,7 +831,6 @@ EOS
         oldlen = @snippet.length
         @snippet = @snippet[0 ... SNIPPET_LEN].chomp
         @snippet += "..." if @snippet.length < oldlen
-        @dirty = true unless encrypted && $config[:discard_snippets_from_encrypted_messages]
         @snippet_contains_encrypted_content = true if encrypted
       end
     end

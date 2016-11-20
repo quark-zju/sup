@@ -345,7 +345,12 @@ class ThreadSet
   def load_n_threads num, *query
     return if num <= @offset
     new_thread_ids = Notmuch.search(*query, offset: @offset, limit: num - @offset)
-    new_thread_ids.reject! {|tid| @threads.key? tid}
+    load_thread_ids new_thread_ids
+    @offset = num
+  end
+
+  def load_thread_ids tids
+    new_thread_ids = tids.reject {|tid| tid.nil? || @threads.key?(tid)}
     new_thread_ids.each_slice(40) do |thread_ids| # batch size: 40
       threads = Notmuch.show(thread_ids.join(' or '))
       fail if threads.size != thread_ids.size
@@ -354,7 +359,6 @@ class ThreadSet
       end
       yield size if block_given?
     end
-    @offset = num
   end
 
   def process_thread_json tjson, tid, parentmid=nil
@@ -368,8 +372,7 @@ class ThreadSet
         parentmid = mid if i == 0
         c = @messages[mid] # the container
         next if c.message # already seen the message
-        m = Message.new
-        m.load_from_json! mjson
+        m = Message.new tid: tid, json: mjson
         c.message = m
         link @messages[parentmid], c if parentmid
 
@@ -384,41 +387,14 @@ class ThreadSet
     end
   end
 
-  ## merges two threads together. both must be members of this threadset.
-  ## does its best, heuristically, to determine which is the parent.
-  def join_threads threads
-    return if threads.size < 2
-
-    containers = threads.map do |t|
-      c = @messages.member?(t.first.id) ? @messages[t.first.id] : nil
-      raise "not in threadset: #{t.first.id}" unless c && c.message
-      c
-    end
-
-    ## use subject headers heuristically
-    parent = containers.find { |c| !c.is_reply? }
-
-    ## no thread was rooted by a non-reply, so make a fake parent
-    parent ||= @messages["joining-ref-" + containers.map { |c| c.id }.join("-")]
-
-    containers.each do |c|
-      next if c == parent
-      c.message.add_ref parent.id
-      link parent, c
-    end
-
-    true
-  end
-
   def delete_message message
     el = @messages[message.id]
     return unless el.message
     el.message = nil
   end
 
-  ## the heart of the threading code
   def add_message message
-    # TODO migrating to notmuch
+    # TODO notmuch
     fail
   end
 end

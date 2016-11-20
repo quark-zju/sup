@@ -196,6 +196,14 @@ EOS
   ## overwrite me!
   def is_relevant? m; false; end
 
+  def handle_thread_ids_updated_update sender, thread_ids
+    @ts_mutex.synchronize do
+      # FIXME This is WRONG, we probably want poll thread per index
+      @ts.load_thread_ids thread_ids
+    end
+    update
+  end
+
   def handle_added_update sender, m
     add_or_unhide m
     BufferManager.draw_screen
@@ -812,11 +820,9 @@ EOS
 protected
 
   def add_or_unhide m
-    # TODO notmuch fix
-    return
     @ts_mutex.synchronize do
       if (is_relevant?(m) || @ts.is_relevant?(m)) && !@ts.contains?(m)
-        @ts.load_thread_for_message m, @load_thread_opts
+        @ts.load_thread_ids [m.thread_id]
       end
 
       @hidden_threads.delete @ts.thread_for(m)

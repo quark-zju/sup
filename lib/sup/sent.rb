@@ -30,7 +30,8 @@ class SentManager
       @source.synchronize do
         @source.store_message date, from_email, &block
       end
-      PollManager.poll_from @source
+      # TODO notmuch
+      # PollManager.poll_from @source
     end
   end
 end

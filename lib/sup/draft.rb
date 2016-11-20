@@ -17,7 +17,8 @@ class DraftManager
     offset = @source.gen_offset
     fn = @source.fn_for_offset offset
     File.open(fn, "w:UTF-8") { |f| yield f }
-    PollManager.poll_from @source
+    # TODO notmuch
+    # PollManager.poll_from @source
   end
 
   def discard m
