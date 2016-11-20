@@ -1,27 +1,14 @@
 require 'pp'
 
-require "sup/service/label_service"
-
 module Redwood
 
 class Console
   def initialize mode
     @mode = mode
-    @label_service = LabelService.new
   end
 
   def query(query)
     Enumerator.new(Index.instance, :each_message, Index.parse_query(query))
-  end
-
-  def add_labels(query, *labels)
-    count = @label_service.add_labels(query, *labels)
-    print_buffer_dirty_msg count
-  end
-
-  def remove_labels(query, *labels)
-    count = @label_service.remove_labels(query, *labels)
-    print_buffer_dirty_msg count
   end
 
   def print_buffer_dirty_msg msg_count
