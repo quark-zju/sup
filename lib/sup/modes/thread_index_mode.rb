@@ -811,6 +811,8 @@ EOS
 protected
 
   def add_or_unhide m
+    # TODO notmuch fix
+    return
     @ts_mutex.synchronize do
       if (is_relevant?(m) || @ts.is_relevant?(m)) && !@ts.contains?(m)
         @ts.load_thread_for_message m, @load_thread_opts
