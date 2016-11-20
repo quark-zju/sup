@@ -89,7 +89,7 @@ protected
         if SearchManager.predefined_queries.has_key? search_string
           query = SearchManager.predefined_queries[search_string]
         else
-          query = Index.parse_query search_string
+          query = Notmuch.parse_query search_string
         end
         total = Notmuch.count(query)
         unread = Notmuch.count(query, :label => :unread)

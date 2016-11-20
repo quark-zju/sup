@@ -32,6 +32,13 @@ module Redwood
 class Notmuch
   include Redwood::Singleton
 
+  HookManager.register "custom-search", <<EOS
+Executes before a string search is applied to the index,
+returning a new search string.
+Variables:
+  subs: The string being searched.
+EOS
+
   # low-level
   def get_config(name)
     run('config', 'get', name).lines.map(&:chomp)
@@ -110,6 +117,123 @@ class Notmuch
     query
   end
 
+  # (Moved from the old IndexManager)
+  ## parse a query string from the user. returns a query object
+  ## that can be passed to any index method with a 'query'
+  ## argument.
+  ##
+  ## raises a ParseError if something went wrong.
+  def parse_query s
+    query = {}
+
+    subs = HookManager.run("custom-search", :subs => s) || s
+    begin
+      subs = SearchManager.expand subs
+    rescue SearchManager::ExpansionError => e
+      raise ParseError, e.message
+    end
+    subs = subs.gsub(/\b(to|from):(\S+)\b/) do
+      field, value = $1, $2
+      email_field, name_field = %w(email name).map { |x| "#{field}_#{x}" }
+      if(p = ContactManager.contact_for(value))
+        "#{email_field}:#{p.email}"
+      elsif value == "me"
+        '(' + AccountManager.user_emails.map { |e| "#{email_field}:#{e}" }.join(' OR ') + ')'
+      else
+        "(#{email_field}:#{value} OR #{name_field}:#{value})"
+      end
+    end
+
+    ## gmail style "is" operator
+    subs = subs.gsub(/\b(is|has):(\S+)\b/) do
+      field, label = $1, $2
+      case label
+      when "read"
+        "-label:unread"
+      when "spam"
+        query[:load_spam] = true
+        "label:spam"
+      when "deleted"
+        query[:load_deleted] = true
+        "label:deleted"
+      else
+        "label:#{$2}"
+      end
+    end
+
+    ## labels are stored lower-case in the index
+    subs = subs.gsub(/\blabel:(\S+)\b/) do
+      label = $1
+      "label:#{label.downcase}"
+    end
+
+    ## if we see a label:deleted or a label:spam term anywhere in the query
+    ## string, we set the extra load_spam or load_deleted options to true.
+    ## bizarre? well, because the query allows arbitrary parenthesized boolean
+    ## expressions, without fully parsing the query, we can't tell whether
+    ## the user is explicitly directing us to search spam messages or not.
+    ## e.g. if the string is -(-(-(-(-label:spam)))), does the user want to
+    ## search spam messages or not?
+    ##
+    ## so, we rely on the fact that turning these extra options ON turns OFF
+    ## the adding of "-label:deleted" or "-label:spam" terms at the very
+    ## final stage of query processing. if the user wants to search spam
+    ## messages, not adding that is the right thing; if he doesn't want to
+    ## search spam messages, then not adding it won't have any effect.
+    query[:load_spam] = true if subs =~ /\blabel:spam\b/
+    query[:load_deleted] = true if subs =~ /\blabel:deleted\b/
+    query[:load_killed] = true if subs =~ /\blabel:killed\b/
+
+    ## gmail style attachments "filename" and "filetype" searches
+    subs = subs.gsub(/\b(filename|filetype):(\((.+?)\)\B|(\S+)\b)/) do
+      field, name = $1, ($3 || $4)
+      case field
+      when "filename"
+        debug "filename: translated #{field}:#{name} to attachment:\"#{name.downcase}\""
+        "attachment:\"#{name.downcase}\""
+      when "filetype"
+        debug "filetype: translated #{field}:#{name} to attachment_extension:#{name.downcase}"
+        "attachment_extension:#{name.downcase}"
+      end
+    end
+
+    lastdate = 2<<32 - 1
+    firstdate = 0
+    subs = subs.gsub(/\b(before|on|in|during|after):(\((.+?)\)\B|(\S+)\b)/) do
+      field, datestr = $1, ($3 || $4)
+      realdate = Chronic.parse datestr, :guess => false, :context => :past
+      if realdate
+        case field
+        when "after"
+          debug "chronic: translated #{field}:#{datestr} to #{realdate.end}"
+          "date:#{realdate.end.to_i}..#{lastdate}"
+        when "before"
+          debug "chronic: translated #{field}:#{datestr} to #{realdate.begin}"
+          "date:#{firstdate}..#{realdate.end.to_i}"
+        else
+          debug "chronic: translated #{field}:#{datestr} to #{realdate}"
+          "date:#{realdate.begin.to_i}..#{realdate.end.to_i}"
+        end
+      else
+        raise ParseError, "can't understand date #{datestr.inspect}"
+      end
+    end
+
+    ## limit:42 restrict the search to 42 results
+    subs = subs.gsub(/\blimit:(\S+)\b/) do
+      lim = $1
+      if lim =~ /^\d+$/
+        query[:limit] = lim.to_i
+        ''
+      else
+        raise ParseError, "non-numeric limit #{lim.inspect}"
+      end
+    end
+
+    debug "translated query: #{subs.inspect}"
+    query[:text] = s
+    query
+  end
   private
 
   @@logger = if $config && $config[:notmuch_logfile]
@@ -151,13 +275,6 @@ class Index
   ## spam.
   MIN_DATE = Time.at 0
   MAX_DATE = Time.at(2**31-1)
-
-  HookManager.register "custom-search", <<EOS
-Executes before a string search is applied to the index,
-returning a new search string.
-Variables:
-  subs: The string being searched.
-EOS
 
   class LockError < StandardError
     def initialize h
@@ -506,123 +623,6 @@ EOS
       limit
     ] + NORMAL_PREFIX.keys + BOOLEAN_PREFIX.keys
   ).map{|p|"#{p}:"} + COMPL_OPERATORS
-
-  ## parse a query string from the user. returns a query object
-  ## that can be passed to any index method with a 'query'
-  ## argument.
-  ##
-  ## raises a ParseError if something went wrong.
-  def parse_query s
-    query = {}
-
-    subs = HookManager.run("custom-search", :subs => s) || s
-    begin
-      subs = SearchManager.expand subs
-    rescue SearchManager::ExpansionError => e
-      raise ParseError, e.message
-    end
-    subs = subs.gsub(/\b(to|from):(\S+)\b/) do
-      field, value = $1, $2
-      email_field, name_field = %w(email name).map { |x| "#{field}_#{x}" }
-      if(p = ContactManager.contact_for(value))
-        "#{email_field}:#{p.email}"
-      elsif value == "me"
-        '(' + AccountManager.user_emails.map { |e| "#{email_field}:#{e}" }.join(' OR ') + ')'
-      else
-        "(#{email_field}:#{value} OR #{name_field}:#{value})"
-      end
-    end
-
-    ## gmail style "is" operator
-    subs = subs.gsub(/\b(is|has):(\S+)\b/) do
-      field, label = $1, $2
-      case label
-      when "read"
-        "-label:unread"
-      when "spam"
-        query[:load_spam] = true
-        "label:spam"
-      when "deleted"
-        query[:load_deleted] = true
-        "label:deleted"
-      else
-        "label:#{$2}"
-      end
-    end
-
-    ## labels are stored lower-case in the index
-    subs = subs.gsub(/\blabel:(\S+)\b/) do
-      label = $1
-      "label:#{label.downcase}"
-    end
-
-    ## if we see a label:deleted or a label:spam term anywhere in the query
-    ## string, we set the extra load_spam or load_deleted options to true.
-    ## bizarre? well, because the query allows arbitrary parenthesized boolean
-    ## expressions, without fully parsing the query, we can't tell whether
-    ## the user is explicitly directing us to search spam messages or not.
-    ## e.g. if the string is -(-(-(-(-label:spam)))), does the user want to
-    ## search spam messages or not?
-    ##
-    ## so, we rely on the fact that turning these extra options ON turns OFF
-    ## the adding of "-label:deleted" or "-label:spam" terms at the very
-    ## final stage of query processing. if the user wants to search spam
-    ## messages, not adding that is the right thing; if he doesn't want to
-    ## search spam messages, then not adding it won't have any effect.
-    query[:load_spam] = true if subs =~ /\blabel:spam\b/
-    query[:load_deleted] = true if subs =~ /\blabel:deleted\b/
-    query[:load_killed] = true if subs =~ /\blabel:killed\b/
-
-    ## gmail style attachments "filename" and "filetype" searches
-    subs = subs.gsub(/\b(filename|filetype):(\((.+?)\)\B|(\S+)\b)/) do
-      field, name = $1, ($3 || $4)
-      case field
-      when "filename"
-        debug "filename: translated #{field}:#{name} to attachment:\"#{name.downcase}\""
-        "attachment:\"#{name.downcase}\""
-      when "filetype"
-        debug "filetype: translated #{field}:#{name} to attachment_extension:#{name.downcase}"
-        "attachment_extension:#{name.downcase}"
-      end
-    end
-
-    lastdate = 2<<32 - 1
-    firstdate = 0
-    subs = subs.gsub(/\b(before|on|in|during|after):(\((.+?)\)\B|(\S+)\b)/) do
-      field, datestr = $1, ($3 || $4)
-      realdate = Chronic.parse datestr, :guess => false, :context => :past
-      if realdate
-        case field
-        when "after"
-          debug "chronic: translated #{field}:#{datestr} to #{realdate.end}"
-          "date:#{realdate.end.to_i}..#{lastdate}"
-        when "before"
-          debug "chronic: translated #{field}:#{datestr} to #{realdate.begin}"
-          "date:#{firstdate}..#{realdate.end.to_i}"
-        else
-          debug "chronic: translated #{field}:#{datestr} to #{realdate}"
-          "date:#{realdate.begin.to_i}..#{realdate.end.to_i}"
-        end
-      else
-        raise ParseError, "can't understand date #{datestr.inspect}"
-      end
-    end
-
-    ## limit:42 restrict the search to 42 results
-    subs = subs.gsub(/\blimit:(\S+)\b/) do
-      lim = $1
-      if lim =~ /^\d+$/
-        query[:limit] = lim.to_i
-        ''
-      else
-        raise ParseError, "non-numeric limit #{lim.inspect}"
-      end
-    end
-
-    debug "translated query: #{subs.inspect}"
-    query[:text] = s
-    query
-  end
 
   private
 
