@@ -43,7 +43,7 @@ class Message
               :cc, :bcc, :labels, :attachments, :list_address, :recipient_email, :replyto,
               :list_subscribe, :list_unsubscribe
 
-  bool_reader :dirty, :source_marked_read, :snippet_contains_encrypted_content
+  bool_reader :dirty, :dirty_labels, :source_marked_read, :snippet_contains_encrypted_content
 
   attr_accessor :locations
 
@@ -56,6 +56,7 @@ class Message
     @have_snippet = !(opts[:snippet].nil? || opts[:snippet].empty?)
     @labels = Set.new(opts[:labels] || [])
     @dirty = false
+    @dirty_labels = false
     @encrypted = false
     @chunks = nil
     @attachments = []
@@ -185,11 +186,13 @@ class Message
 
   def add_ref ref
     @refs << ref
-    @dirty = true
+    # @dirty = true
   end
 
   def remove_ref ref
-    @dirty = true if @refs.delete ref
+    # TODO notmuch ?
+    # @dirty = true if
+    @refs.delete ref
   end
 
   attr_reader :snippet
@@ -213,8 +216,12 @@ class Message
   ## don't tempt me.
   def sanitize_message_id mid; mid.gsub(/(\s|[^\000-\177])+/, "")[0..254] end
 
+  def clear_dirty_labels
+    @dirty_labels = false
+  end
+
   def clear_dirty
-    @dirty = false
+    @dirty = @dirty_labels = false
   end
 
   def has_label? t; @labels.member? t; end
@@ -222,13 +229,13 @@ class Message
     l = l.to_sym
     return if @labels.member? l
     @labels << l
-    @dirty = true
+    @dirty_labels = true
   end
   def remove_label l
     l = l.to_sym
     return unless @labels.member? l
     @labels.delete l
-    @dirty = true
+    @dirty_labels = true
   end
 
   def recipients
@@ -240,7 +247,7 @@ class Message
     raise ArgumentError, "not a set of labels" unless l.all? { |ll| ll.is_a?(Symbol) }
     return if @labels == l
     @labels = l
-    @dirty = true
+    @dirty_labels = true
   end
 
   def chunks
@@ -345,6 +352,12 @@ EOS
     end
   end
 
+  def self.sync_back_labels messages
+    dirtymessages = [*messages].select(&:dirty_labels?)
+    Notmuch::tag_batch(dirtymessages.map{|m| ["id:#{m.id}", m.labels]})
+    dirtymessages.each(&:clear_dirty_labels)
+  end
+
   def merge_labels_from_locations merge_labels
     ## Get all labels from all locations
     location_labels = Set.new([])
@@ -361,7 +374,7 @@ EOS
 
     if not location_labels.empty?
       @labels = @labels.union(location_labels)
-      @dirty = true
+      # @dirty = true
     end
   end
 

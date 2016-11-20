@@ -51,6 +51,14 @@ class Notmuch
     JSON.parse(run('show', '--format=json', "--body=#{body}", *query))
   end
 
+  def tag_batch(query_tags)
+    return if query_tags.empty?
+    input = query_tags.map do |q, ls|
+      "#{ls.map{|l| "+#{l} "}.join} -- #{q}\n"
+    end.join
+    run('tag', '--remove-all', '--batch', input: input)
+  end
+
   # high-level
 
   def load_contacts(email_addresses, limit=20)
@@ -66,11 +74,13 @@ class Notmuch
 
   private
 
-  def run(*args, check_status: true, check_stderr: true, filter: nil, **opts)
+  def run(*args, check_status: true, check_stderr: true, filter: nil, input: nil, **opts)
     args.reject! { |a| opts.merge!(a) if a.is_a?(Hash) }
-    cmd = "notmuch #{Shellwords.join(args)} #{Shellwords.escape(convert_query opts)}"
-    cmd << "| #{filter}" if filter
-    stdout_str, stderr_str, status = Open3.capture3(cmd)
+    optstr = convert_query opts
+    cmd = "notmuch #{Shellwords.join(args)}"
+    cmd << " #{Shellwords.escape(optstr)}" unless optstr.empty?
+    cmd << " | #{filter}" if filter
+    stdout_str, stderr_str, status = Open3.capture3(cmd, stdin_data: input)
     if (check_status && !status.success?) || (check_stderr && !stderr_str.empty?)
       raise "Failed to execute #{cmd}: exitcode=#{status.exitstatus}, stderr=#{stderr_str}"
     end
@@ -133,8 +143,6 @@ EOS
     @dir = dir
     FileUtils.mkdir_p @dir
     @lock = Lockfile.new lockfile, :retries => 0, :max_age => nil
-    @sync_worker = nil
-    @sync_queue = Queue.new
     @index_mutex = Monitor.new
   end
 
@@ -586,39 +594,8 @@ EOS
     query
   end
 
-  def save_message m, sync_back = true
-    if @sync_worker
-      @sync_queue << [m, sync_back]
-    else
-      update_message_state [m, sync_back]
-    end
-    m.clear_dirty
-  end
-
   def save_thread t, sync_back = true
-    t.each_dirty_message do |m|
-      save_message m, sync_back
-    end
-  end
-
-  def start_sync_worker
-    @sync_worker = Redwood::reporting_thread('index sync') { run_sync_worker }
-  end
-
-  def stop_sync_worker
-    return unless worker = @sync_worker
-    @sync_worker = nil
-    @sync_queue << :die
-    worker.join
-  end
-
-  def run_sync_worker
-    while m = @sync_queue.deq
-      return if m == :die
-      update_message_state m
-      # Necessary to keep Xapian calls from lagging the UI too much.
-      sleep 0.03
-    end
+    Message.sync_back_labels t.messages
   end
 
   private
@@ -737,52 +714,6 @@ EOS
   def sync_message m, overwrite, sync_back = true
     ## TODO: we should not save the message if the sync_back failed
     ## since it would overwrite the location field
-    # TODO: do not know what to do with notmuch yet
-    return
-    m.sync_back if sync_back
-
-    doc = synchronize { find_doc(m.id) }
-    existed = doc != nil
-    doc ||= Xapian::Document.new
-    do_index_static = overwrite || !existed
-    old_entry = !do_index_static && doc.entry
-    snippet = do_index_static ? m.snippet : old_entry[:snippet]
-
-    entry = {
-      :message_id => m.id,
-      :locations => m.locations.map { |x| [x.source.id, x.info] },
-      :date => truncate_date(m.date),
-      :snippet => snippet,
-      :labels => m.labels.to_a,
-      :from => [m.from.email, m.from.name],
-      :to => m.to.map { |p| [p.email, p.name] },
-      :cc => m.cc.map { |p| [p.email, p.name] },
-      :bcc => m.bcc.map { |p| [p.email, p.name] },
-      :subject => m.subj,
-      :refs => m.refs.to_a,
-      :replytos => m.replytos.to_a,
-    }
-
-    if do_index_static
-      doc.clear_terms
-      doc.clear_values
-      index_message_static m, doc, entry
-    end
-
-    index_message_locations doc, entry, old_entry
-    index_message_threading doc, entry, old_entry
-    index_message_labels doc, entry[:labels], (do_index_static ? [] : old_entry[:labels])
-    doc.entry = entry
-
-    synchronize do
-      unless docid = existed ? doc.docid : assign_docid(m, truncate_date(m.date))
-        # Could be triggered by spam
-        warn "docid underflow, dropping #{m.id.inspect}"
-        return
-      end
-      @xapian.replace_document docid, doc
-    end
-
     m.labels.each { |l| LabelManager << l }
     true
   end

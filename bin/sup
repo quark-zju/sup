@@ -154,7 +154,6 @@ begin
 
   Index.load
   Redwood::check_syncback_settings
-  Index.start_sync_worker unless $opts[:no_threads]
 
   $die = false
   trap("TERM") { |x| $die = true }
@@ -380,7 +379,6 @@ ensure
 
   HookManager.run "shutdown" if HookManager.instantiated?
 
-  Index.stop_sync_worker
   Redwood::finish
   stop_cursing
   Redwood::Logger.remove_all_sinks!
