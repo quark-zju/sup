@@ -504,9 +504,10 @@ EOS
   end
 
   def flush_index
-    @flush_id = BufferManager.say "Flushing index..."
-    Index.save_index
-    BufferManager.clear @flush_id
+    # TODO notmuch
+    # @flush_id = BufferManager.say "Flushing index..."
+    # Index.save_index
+    # BufferManager.clear @flush_id
   end
 
   ## m-m-m-m-MULTI-KILL

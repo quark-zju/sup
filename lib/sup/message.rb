@@ -861,17 +861,18 @@ class Location
   end
 
   def sync_back labels, message
-    synced = false
-    return synced unless sync_back_enabled? and valid?
-    source.synchronize do
-      new_info = source.sync_back(@info, labels)
-      if new_info
-        @info = new_info
-        Index.sync_message message, true
-        synced = true
-      end
-    end
-    synced
+    # TODO: notmuch
+    # synced = false
+    # return synced unless sync_back_enabled? and valid?
+    # source.synchronize do
+    #   new_info = source.sync_back(@info, labels)
+    #   if new_info
+    #     @info = new_info
+    #     Index.sync_message message, true
+    #     synced = true
+    #   end
+    # end
+    # synced
   end
 
   def sync_back_enabled?
