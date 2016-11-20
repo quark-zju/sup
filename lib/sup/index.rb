@@ -37,6 +37,23 @@ class Notmuch
     run('count', *query).to_i
   end
 
+  def address(*query, limit: 20)
+    run('address', '--format=text', *query, filter: "head -n #{limit}").lines.uniq.map {|a| Person.from_address a.chomp}
+  end
+
+  # high-level
+
+  def load_contacts(email_addresses, limit=20)
+    @@contact_cache ||= {}
+    key = "#{email_addresses}"
+    if (@@contact_cache[key] || []).size < limit
+      query = email_addresses.map{|e| "from:#{e} or to:#{e}"}.join(' ')
+      # note: --output=recipients seems to be slow
+      @@contact_cache[key] = address('--output=sender', '--output=recipients', query, limit: limit)
+    end
+    @@contact_cache[key][0, limit]
+  end
+
   private
 
   def run(*args, check_status: true, check_stderr: true, filter: nil)

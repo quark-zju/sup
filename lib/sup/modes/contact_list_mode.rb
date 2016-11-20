@@ -111,7 +111,7 @@ class ContactListMode < LineCursorMode
     @user_contacts += (HookManager.run("extra-contact-addresses") || []).map { |addr| Person.from_address addr }
     num = [@num - @user_contacts.length, 0].max
     BufferManager.say("Loading #{num} contacts from index...") do
-      recentc = Index.load_contacts AccountManager.user_emails, :num => num
+      recentc = Notmuch.load_contacts AccountManager.user_emails, num
       @contacts = (@user_contacts + recentc).sort_by { |p| p.sort_by_me }.uniq
     end
   end

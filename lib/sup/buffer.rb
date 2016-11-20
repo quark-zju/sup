@@ -583,7 +583,7 @@ EOS
     default = default_contacts.is_a?(String) ? default_contacts : default_contacts.map { |s| s.to_s }.join(", ")
     default += " " unless default.empty?
 
-    recent = Index.load_contacts(AccountManager.user_emails, :num => 10).map { |c| [c.full_address, c.email] }
+    recent = Notmuch.load_contacts(AccountManager.user_emails, 10).map { |c| [c.full_address, c.email] }
     contacts = ContactManager.contacts.map { |c| [ContactManager.alias_for(c), c.full_address, c.email] }
 
     completions = (recent + contacts).flatten.uniq
