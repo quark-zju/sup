@@ -737,6 +737,8 @@ EOS
   def sync_message m, overwrite, sync_back = true
     ## TODO: we should not save the message if the sync_back failed
     ## since it would overwrite the location field
+    # TODO: do not know what to do with notmuch yet
+    return
     m.sync_back if sync_back
 
     doc = synchronize { find_doc(m.id) }
