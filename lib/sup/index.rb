@@ -112,13 +112,21 @@ class Notmuch
 
   private
 
+  @@logger = if $config && $config[:notmuch_logfile]
+               ::Logger.new($config[:notmuch_logfile])
+             else
+               nil
+             end
+
   def run(*args, check_status: true, check_stderr: true, filter: nil, input: nil, **opts)
     args.reject! { |a| opts.merge!(a) if a.is_a?(Hash) }
     optstr = convert_query opts
     cmd = "notmuch #{Shellwords.join(args)}"
     cmd << " #{Shellwords.escape(optstr)}" unless optstr.empty?
     cmd << " | #{filter}" if filter
-    debug "running #{cmd}" unless cmd == 'notmuch count'
+    if @@logger and cmd != 'notmuch count'
+      @@logger.info(cmd)
+    end
     stdout_str, stderr_str, status = Open3.capture3(cmd, stdin_data: input)
     if (check_status && !status.success?) || (check_stderr && !stderr_str.empty?)
       raise "Failed to execute #{cmd}: exitcode=#{status.exitstatus}, stderr=#{stderr_str}"
