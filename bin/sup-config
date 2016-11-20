@@ -105,7 +105,6 @@ end
 
 @cli.wrap_at = :auto
 Redwood::start
-index = Redwood::Index.init
 Redwood::SourceManager.load_sources
 
 @cli.say <<EOS
@@ -143,86 +142,6 @@ $config[:accounts][:default][:signature] = sigfn
 $config[:editor] = editor
 $config[:time_mode] = time_mode
 
-done = false
-until done
-  @cli.say "\nNow, we'll tell Sup where to find all your email."
-  Redwood::SourceManager.load_sources
-  @cli.say "Current sources:"
-  if Redwood::SourceManager.sources.empty?
-    @cli.say "  No sources!"
-  else
-    Redwood::SourceManager.sources.each { |s| puts "* #{s}" }
-  end
-
-  @cli.say "\n"
-  @cli.choose do |menu|
-    menu.prompt = "Your wish? "
-    menu.choice("Add a new source.") { add_source }
-    menu.choice("Done adding sources!") { done = true }
-  end
-end
-
-@cli.say "\nSup needs to know where to store your sent messages."
-@cli.say "Only sources capable of storing mail will be listed.\n\n"
-
-Redwood::SourceManager.load_sources
-if Redwood::SourceManager.sources.empty?
-  @cli.say "\nUsing the default sup://sent, since you haven't configured other sources yet."
-  $config[:sent_source] = 'sup://sent'
-else
-  # this handles the event that source.yaml already contains the SentLoader
-  # source.
-  have_sup_sent = false
-
-  @cli.choose do |menu|
-    menu.prompt = "Store my sent mail in? "
-
-    menu.choice('Default (an mbox in ~/.sup, aka sup://sent)') { $config[:sent_source] = 'sup://sent'} unless have_sup_sent
-
-    valid_sents = Redwood::SourceManager.sources.each do |s|
-      have_sup_sent = true if s.to_s.eql?('sup://sent')
-      menu.choice(s.to_s) { $config[:sent_source] = s.to_s } if s.respond_to? :store_message
-    end
-  end
-end
-
 Redwood::save_yaml_obj $config, Redwood::CONFIG_FN, false, true
 
 @cli.say "Ok, I've saved you up a nice lil' #{Redwood::CONFIG_FN}."
-
-@cli.say <<EOS
-
-The final step is to import all your messages into the Sup index.
-Depending on how many messages are in the sources, this could take
-quite a while.
-
-EOS
-
-if axe_yes "Run sup-sync to import all messages now?"
-  while true
-    cmd = build_cmd("sup-sync") + " --all-sources"
-    puts "Ok, trying to run \"#{cmd}\"..."
-    system cmd
-    if $?.success?
-      @cli.say "Great! It worked!"
-      break
-    else
-      @cli.say "Rats, that failed. You may have to do it manually."
-      if axe_yes("Try again?") then next else break end
-    end
-  end
-end
-
-index.load
-
-@cli.say <<EOS
-
-Okee doke, you've got yourself an index of #{index.size} messages. Looks
-like you're ready to jack in to cyberspace there, cowboy.
-
-Just one last command:
-
-  #{build_cmd "sup"}
-
-Have fun!
-EOS
