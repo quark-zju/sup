@@ -582,39 +582,6 @@ EOS
     end
 
     debug "translated query: #{subs.inspect}"
-
-    qp = Xapian::QueryParser.new
-    qp.database = @xapian
-    qp.stemmer = Xapian::Stem.new($config[:stem_language])
-    qp.stemming_strategy = Xapian::QueryParser::STEM_SOME
-    qp.default_op = Xapian::Query::OP_AND
-    valuerangeprocessor = Xapian::NumberValueRangeProcessor.new(DATE_VALUENO,
-                                                                'date:', true)
-    qp.add_valuerangeprocessor(valuerangeprocessor)
-    NORMAL_PREFIX.each { |k,info| info[:prefix].each {
-      |v| qp.add_prefix k, v }
-    }
-    BOOLEAN_PREFIX.each { |k,info| info[:prefix].each {
-      |v| qp.add_boolean_prefix k, v, info[:exclusive] }
-    }
-
-    begin
-      xapian_query = qp.parse_query(subs, Xapian::QueryParser::FLAG_PHRASE   |
-                                          Xapian::QueryParser::FLAG_BOOLEAN  |
-                                          Xapian::QueryParser::FLAG_LOVEHATE |
-                                          Xapian::QueryParser::FLAG_WILDCARD)
-    rescue RuntimeError => e
-      raise ParseError, "xapian query parser error: #{e}"
-    end
-
-    debug "parsed xapian query: #{Util::Query.describe(xapian_query, subs)}"
-
-    if xapian_query.nil? or xapian_query.empty?
-      raise ParseError, "couldn't parse \"#{s}\" as xapian query " \
-                        "(special characters aren't indexed)"
-    end
-
-    query[:qobj] = xapian_query
     query[:text] = s
     query
   end
