@@ -121,7 +121,8 @@ EOS
     end
     hostname = Socket.gethostname if hostname.nil? or hostname.empty?
 
-    @message_id = "<#{Time.now.to_i}-sup-#{rand 10000}@#{hostname}>"
+    message_id = (@m && @m.id) || "#{Time.now.to_i}-sup-#{rand 10000}@#{hostname}"
+    @message_id = "<#{message_id}>"
     @edited = false
     @sig_edited = false
     @selectors = []
@@ -212,21 +213,27 @@ EOS
   def edit_subject; edit_field "Subject" end
 
   def save_message_to_file
+    # dump message to a file so it could be edited later
     raise 'cannot save message to another file while editing' if @editing
     sig = sig_lines.join("\n")
-    @file = Tempfile.new ["sup.#{self.class.name.gsub(/.*::/, '').camel_to_hyphy}", ".eml"]
-    @file.puts format_headers(@header - NON_EDITABLE_HEADERS).first
-    @file.puts
+    path = File.join(DRAFT_DIR, "#{@message_id}.eml")
+    if File.exists?(path)
+      @file = File.open(path, 'r')
+    else
+      @file = File.open(path, 'w')
+      @file.puts format_headers(@header - NON_EDITABLE_HEADERS).first
+      @file.puts
 
-    begin
-      text = @body.join("\n")
-    rescue Encoding::CompatibilityError
-      text = @body.map { |x| x.fix_encoding! }.join("\n")
-      debug "encoding problem while writing message, trying to rescue, but expect errors: #{text}"
+      begin
+        text = @body.join("\n")
+      rescue Encoding::CompatibilityError
+        text = @body.map { |x| x.fix_encoding! }.join("\n")
+        debug "encoding problem while writing message, trying to rescue, but expect errors: #{text}"
+      end
+
+      @file.puts text
+      @file.puts sig if ($config[:edit_signature] and !@sig_edited)
     end
-
-    @file.puts text
-    @file.puts sig if ($config[:edit_signature] and !@sig_edited)
     @file.close
   end
 
@@ -507,7 +514,7 @@ protected
 
   def parse_file fn
     File.open(fn) do |f|
-      header = Source.parse_raw_email_header(f).inject({}) { |h, (k, v)| h[k.capitalize] = v; h } # lousy HACK
+      header = Message.parse_raw_email_header(f).inject({}) { |h, (k, v)| h[k.capitalize] = v; h } # lousy HACK
       body = f.readlines.map { |l| l.chomp }
 
       header.delete_if { |k, v| NON_EDITABLE_HEADERS.member? k }
@@ -601,7 +608,7 @@ protected
   end
 
   def save_as_draft
-    DraftManager.write_draft { |f| write_message f, false }
+    DraftManager.write_draft(@message_id) { |f| write_message f, false }
     BufferManager.kill_buffer buffer
     BufferManager.flash "Saved for later editing."
   end

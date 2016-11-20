@@ -27,7 +27,7 @@ class ResumeMode < EditMessageMode
       true
     when false
       if edited?
-        DraftManager.write_draft { |f| write_message f, false }
+        DraftManager.write_draft(@m.id) { |f| write_message f, false }
         DraftManager.discard @m
         BufferManager.flash "Draft saved."
       end
@@ -46,7 +46,7 @@ class ResumeMode < EditMessageMode
 
   def save_as_draft
     @safe = true
-    DraftManager.discard @m if super
+    super
   end
 end
 

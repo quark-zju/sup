@@ -187,6 +187,8 @@ EOS
   end
 
   def handle_thread_ids_updated_update sender, thread_ids
+    thread_ids.reject! {|t| t.nil? || t.empty?}
+    return if thread_ids.empty?
     @ts_mutex.synchronize do
       query = "(#{Notmuch.convert_query(@load_thread_opts)}) and (#{thread_ids.join(' or ')})"
       # filter thread_ids
@@ -205,8 +207,8 @@ EOS
     t = thread_containing(m) or return
     l = @lines[t] or return
     @ts_mutex.synchronize do
-      # @ts.delete_message m
-      # @ts.add_message m
+      @ts.delete_message m
+      @ts.add_message m
     end
     # Notmuch.save_thread t # do we need this?
     update_text_for_line l

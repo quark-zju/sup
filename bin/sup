@@ -57,6 +57,8 @@ end
 require 'fileutils'
 require "sup"
 
+FileUtils.mkdir_p Redwood::DRAFT_DIR
+
 Redwood::HookManager.register "startup", <<EOS
 Executes at startup
 No variables.

@@ -39,6 +39,10 @@ EOS
     run('new', '--quiet')
   end
 
+  def insert(data)
+    run('insert', '--create-folder', input: data)
+  end
+
   def count(*query)
     run('count', *query).to_i
   end
@@ -47,14 +51,22 @@ EOS
     run('address', '--format=text', *query, filter: "head -n #{limit}").lines.uniq.map {|a| Person.from_address a.chomp}
   end
 
-  def search(*query, offset: 0, limit: 50)
+  def search(*query, format: 'text', exclude: true, output: 'threads', offset: nil, limit: nil)
     # search threads, return thread ids
-    run('search', '--format=text', "--output=threads", "--offset=#{offset}", "--limit=#{limit}", *query).lines.map(&:chomp)
+    flags = ["--format=#{format}", "--output=#{output}"]
+    flags << "--offset=#{offset}" unless offset.nil?
+    flags << "--limit=#{limit}" unless limit.nil?
+    flags << '--exclude=false' if exclude == false
+    run('search', *flags, *query).lines.map(&:chomp)
   end
 
   def show(*query, body: false)
     # query: usually just a thread id
     JSON.parse(run('show', '--format=json', "--body=#{body}", *query))
+  end
+
+  def tag(*query)
+    run('tag', *query)
   end
 
   def tag_batch(query_tags)
@@ -67,6 +79,18 @@ EOS
   end
 
   # high-level
+
+  def filenames_from_message_id mid
+    search("id:#{mid}", exclude: false, format: 'text', output: 'files', limit: 1)
+  end
+
+  def thread_id_from_message_id mid
+    search("id:#{mid}", exclude: false, format: 'text', output: 'threads', limit: 1)[0]
+  end
+
+  def tags_from_message_id mid
+    search("id:#{mid}", exclude: false, output: 'tags')
+  end
 
   def save_thread t
     Message.sync_back_labels t.messages
@@ -94,7 +118,7 @@ EOS
       "(not #{t[1..-1]})"
     end
     query << ([*opts[:label]].map {|l| " tag:#{l}"}.join(''))
-    %w[spam delete killed].each do |tag|
+    %w[spam deleted killed].each do |tag|
        loadtag = opts["load_#{tag}".to_sym] || (opts["skip_#{tag}".to_sym] == false)
        query << " (not tag:#{tag})" if !loadtag && !query.include?("tag:#{tag}")
     end

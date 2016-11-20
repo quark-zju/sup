@@ -93,7 +93,7 @@ module Redwood
     Redwood::ContactManager.init Redwood::CONTACT_FN
     Redwood::LabelManager.init Redwood::LABEL_FN
     Redwood::AccountManager.init $config[:accounts]
-    Redwood::DraftManager.init Redwood::DRAFT_DIR
+    Redwood::DraftManager.init # Redwood::DRAFT_DIR # no longer need DRAFT_DIR
     Redwood::SearchManager.init Redwood::SEARCH_FN
 
     managers.each { |x| x.init unless x.instantiated? }

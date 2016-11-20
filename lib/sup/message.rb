@@ -41,7 +41,7 @@ class Message
 
   attr_reader :id, :date, :from, :subj, :refs, :replytos, :to,
               :cc, :bcc, :labels, :attachments, :list_address, :recipient_email, :replyto,
-              :list_subscribe, :list_unsubscribe, :thread_id, :filename
+              :list_subscribe, :list_unsubscribe, :filename
 
   bool_reader :dirty, :dirty_labels, :source_marked_read, :snippet_contains_encrypted_content
 
@@ -51,13 +51,14 @@ class Message
     @snippet = opts[:snippet]
     @snippet_contains_encrypted_content = false
     @have_snippet = !(opts[:snippet].nil? || opts[:snippet].empty?)
-    @labels = Set.new(opts[:labels] || [])
+    @labels = Set.new((opts[:labels] || []).map(&:to_sym))
     @dirty = false
     @dirty_labels = false
     @encrypted = false
     @chunks = nil
     @attachments = []
     @thread_id = opts[:tid]
+    @id = nil
 
     ## we need to initialize this. see comments in parse_header as to
     ## why.
@@ -66,6 +67,9 @@ class Message
     @filename = opts[:filename]
     if opts[:json]
       load_from_json! opts[:json] # notmuch json format
+    elsif opts[:id]
+      @id = opts[:id].sub(/^</, '').sub(/>$/, '')
+      load_from_notmuch! # notmuch id -> file, load from file, slow
     elsif opts[:header]
       parse_header(opts[:header])
     end
@@ -74,7 +78,7 @@ class Message
 
   def load_from_json! mjson
     @id = mjson['id']
-    @labels |= (mjson['tags'] || []).map(&:to_sym)
+    @labels |= Set.new((mjson['tags'] || []).map(&:to_sym))
     @subj = mjson['headers']['Subject']
     @filename = mjson['filename']
     @date_relative = mjson['date_relative']
@@ -101,7 +105,7 @@ class Message
     @raw_mid = header["message-id"]
     if @raw_mid
       mid = @raw_mid =~ /<(.+?)>/ ? $1 : @raw_mid
-      @id = sanitize_message_id mid
+      @id = mid
     end
     if (not @id.include? '@') || @id.length < 6
       @id = "sup-faked-" + Digest::MD5.hexdigest(raw_header)
@@ -140,9 +144,9 @@ class Message
     ## have some extra refs set by the UI. (this happens when the user
     ## joins threads manually). so we will merge the current refs values
     ## in here.
-    refs = (header["references"] || "").scan(/<(.+?)>/).map { |x| sanitize_message_id x.first }
+    refs = (header["references"] || "").scan(/<(.+?)>/).map { |x| x.first }
     @refs = (@refs + refs).uniq
-    @replytos = (header["in-reply-to"] || "").scan(/<(.+?)>/).map { |x| sanitize_message_id x.first }
+    @replytos = (header["in-reply-to"] || "").scan(/<(.+?)>/).map { |x| x.first }
 
     @replyto = Person.from_address header["reply-to"]
     @list_address = if header["list-post"]
@@ -162,29 +166,18 @@ class Message
     @list_unsubscribe = header["list-unsubscribe"]
   end
 
-  ## Expected index entry format:
-  ## :message_id, :subject => String
-  ## :date => Time
-  ## :refs, :replytos => Array of String
-  ## :from => Person
-  ## :to, :cc, :bcc => Array of Person
-  def load_from_index! entry
-    @id = entry[:message_id]
-    @from = entry[:from]
-    @date = entry[:date]
-    @subj = entry[:subject]
-    @to = entry[:to]
-    @cc = entry[:cc]
-    @bcc = entry[:bcc]
-    @refs = (@refs + entry[:refs]).uniq
-    @replytos = entry[:replytos]
+  def thread_id
+    return nil if @id.nil?
+    @thread_id ||= Notmuch.thread_id_from_message_id @id
+  end
 
-    @replyto = nil
-    @list_address = nil
-    @recipient_email = nil
-    @source_marked_read = false
-    @list_subscribe = nil
-    @list_unsubscribe = nil
+  def load_from_notmuch!
+    mid = @id
+    if not @filename
+      @filename = Notmuch.filenames_from_message_id(mid)[0]
+      load_from_source!
+    end
+    @labels = Set.new(Notmuch.tags_from_message_id(mid).map(&:to_sym))
   end
 
   def add_ref ref
@@ -200,21 +193,8 @@ class Message
   def is_draft?; @labels.member? :draft; end
   def draft_filename
     raise "not a draft" unless is_draft?
-    source.fn_for_offset source_info
+    @filename
   end
-
-  ## sanitize message ids by removing spaces and non-ascii characters.
-  ## also, truncate to 255 characters. all these steps are necessary
-  ## to make the index happy. of course, we probably fuck up a couple
-  ## valid message ids as well. as long as we're consistent, this
-  ## should be fine, though.
-  ##
-  ## also, mostly the message ids that are changed by this belong to
-  ## spam email.
-  ##
-  ## an alternative would be to SHA1 or MD5 all message ids on a regular basis.
-  ## don't tempt me.
-  def sanitize_message_id mid; mid.gsub(/(\s|[^\000-\177])+/, "")[0..254] end
 
   def clear_dirty_labels
     @dirty_labels = false
@@ -335,7 +315,7 @@ EOS
   end
 
   def self.sync_back_labels messages
-    dirtymessages = [*messages].select(&:dirty_labels?)
+    dirtymessages = [*messages].select{|m|m&&m.dirty_labels?}
     Notmuch::tag_batch(dirtymessages.map{|m| ["id:#{m.id}", m.labels]})
     dirtymessages.each(&:clear_dirty_labels)
   end
@@ -356,33 +336,8 @@ EOS
 
     if not location_labels.empty?
       @labels = @labels.union(location_labels)
-      # @dirty = true
+      @dirty_labels = true
     end
-  end
-
-  ## returns all the content from a message that will be indexed
-  def indexable_content
-    load_from_source!
-    [
-      from && from.indexable_content,
-      to.map { |p| p.indexable_content },
-      cc.map { |p| p.indexable_content },
-      bcc.map { |p| p.indexable_content },
-      indexable_chunks.map { |c| c.lines.map { |l| l.fix_encoding! } },
-      indexable_subject,
-    ].flatten.compact.join " "
-  end
-
-  def indexable_body
-    indexable_chunks.map { |c| c.lines }.flatten.compact.map { |l| l.fix_encoding! }.join " "
-  end
-
-  def indexable_chunks
-    chunks.select { |c| c.indexable? } || []
-  end
-
-  def indexable_subject
-    Message.normalize_subj(subj)
   end
 
   def quotable_body_lines
@@ -398,10 +353,38 @@ EOS
        "Subject: #{@subj}"]
   end
 
-  def self.build_from_source source, source_info
-    m = Message.new :locations => [Location.new(source, source_info)]
-    m.load_from_source!
-    m
+  def self.parse_raw_email_header f
+    header = {}
+    last = nil
+
+    while(line = f.gets)
+      case line
+      ## these three can occur multiple times, and we want the first one
+      when /^(Delivered-To|X-Original-To|Envelope-To):\s*(.*?)\s*$/i; header[last = $1.downcase] ||= $2
+      ## regular header: overwrite (not that we should see more than one)
+      ## TODO: figure out whether just using the first occurrence changes
+      ## anything (which would simplify the logic slightly)
+      when /^([^:\s]+):\s*(.*?)\s*$/i; header[last = $1.downcase] = $2
+      when /^\r*$/; break # blank line signifies end of header
+      else
+        if last
+          header[last] << " " unless header[last].empty?
+          header[last] << line.strip
+        end
+      end
+    end
+
+    %w(subject from to cc bcc).each do |k|
+      v = header[k] or next
+      next unless Rfc2047.is_encoded? v
+      header[k] = begin
+        Rfc2047.decode_to $encoding, v
+      rescue Errno::EINVAL, Iconv::InvalidEncoding, Iconv::IllegalSequence => e
+        #debug "warning: error decoding RFC 2047 header (#{e.class.name}): #{e.message}"
+        v
+      end
+    end
+    header
   end
 
 private

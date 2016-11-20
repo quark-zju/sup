@@ -10,7 +10,7 @@ class LabelManager
   RESERVED_LABELS = [ :starred, :spam, :draft, :unread, :killed, :sent, :deleted, :inbox, :attachment, :forwarded, :replied ]
 
   ## labels that will typically be hidden from the user
-  HIDDEN_RESERVED_LABELS = [ :starred, :unread, :attachment, :forwarded, :replied ]
+  HIDDEN_RESERVED_LABELS = [ :starred, :unread, :attachment, :forwarded, :replied, :deleted ]
 
   def initialize fn
     @fn = fn

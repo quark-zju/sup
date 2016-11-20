@@ -345,12 +345,12 @@ class ThreadSet
   def load_n_threads num, *query
     return if num <= @offset
     new_thread_ids = Notmuch.search(*query, offset: @offset, limit: num - @offset)
-    load_thread_ids new_thread_ids
+    load_thread_ids new_thread_ids, ignore_existing: true
     @offset = num
   end
 
-  def load_thread_ids tids
-    new_thread_ids = tids.reject {|tid| tid.nil? || @threads.key?(tid)}
+  def load_thread_ids tids, ignore_existing: false
+    new_thread_ids = tids.reject {|tid| tid.nil? || (ignore_existing && @threads.key?(tid))}
     new_thread_ids.each_slice(40) do |thread_ids| # batch size: 40
       threads = Notmuch.show(thread_ids.join(' or '))
       fail if threads.size != thread_ids.size
@@ -399,8 +399,7 @@ class ThreadSet
   end
 
   def add_message message
-    # TODO notmuch
-    fail
+    load_thread_ids [message.thread_id]
   end
 end
 
