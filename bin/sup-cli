@@ -14,7 +14,7 @@ module Redwood
   Index.load
 
   i = index = Index.instance
-  thread_set = ThreadSet.new Index.instance
+  thread_set = ThreadSet.new
 
   Pry.start binding, quiet: true
 ensure
