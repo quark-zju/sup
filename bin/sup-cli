@@ -13,8 +13,10 @@ module Redwood
   start true
   Index.load
 
-  index = Index.instance
+  i = index = Index.instance
   thread_set = ThreadSet.new Index.instance
 
   Pry.start binding, quiet: true
+ensure
+  Index.unlock
 end
