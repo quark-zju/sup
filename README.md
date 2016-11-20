@@ -4,6 +4,12 @@ Sup is a console-based email client for people with a lot of email.
 
 ![Screenshot](/screenshot/split-horizontal.png?raw=true)
 
+## [notmuch](https://notmuchmail.org/) integration
+
+The `notmuch` branch is a WORKING-IN-PROGRESS to replace Sup's index backend with notmuch. It will reduce some features of Sup but would allow multiple Sup instances - Sup will be a "frontend" of notmuch.
+
+Check the `forked` branch if you want to use Sup without notmuch.
+
 ## New features in this fork
 
 - Basic mouse support.
