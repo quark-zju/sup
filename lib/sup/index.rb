@@ -41,6 +41,16 @@ class Notmuch
     run('address', '--format=text', *query, filter: "head -n #{limit}").lines.uniq.map {|a| Person.from_address a.chomp}
   end
 
+  def search(*query, offset: 0, limit: 50)
+    # search threads, return thread ids
+    run('search', '--format=text', "--output=threads", "--offset=#{offset}", "--limit=#{limit}", *query).lines.map(&:chomp)
+  end
+
+  def show(*query, body: false)
+    # query: usually just a thread id
+    JSON.parse(run('show', '--format=json', "--body=#{body}", *query))
+  end
+
   # high-level
 
   def load_contacts(email_addresses, limit=20)

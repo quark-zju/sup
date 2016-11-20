@@ -49,8 +49,8 @@ class Message
 
   ## if you specify a :header, will use values from that. otherwise,
   ## will try and load the header from the source.
-  def initialize opts
-    @locations = opts[:locations] or raise ArgumentError, "locations can't be nil"
+  def initialize opts={}
+    @locations = opts[:locations] || []
     @snippet = opts[:snippet]
     @snippet_contains_encrypted_content = false
     @have_snippet = !(opts[:snippet].nil? || opts[:snippet].empty?)
@@ -65,6 +65,20 @@ class Message
     @refs = []
 
     #parse_header(opts[:header] || @source.load_header(@source_info))
+    @filename = nil
+  end
+
+  def load_from_json! mjson
+    @id = mjson['id']
+    @labels |= (mjson['tags'] || []).map(&:to_sym)
+    @subj = mjson['headers']['Subject']
+    @filename = mjson['filename']
+    @date_relative = mjson['date_relative']
+    @from = Person.from_address(mjson['headers']['From'])
+    @to = Person.from_address_list(mjson['headers']['To'])
+    @cc = Person.from_address_list(mjson['headers']['Cc'])
+    @bcc = Person.from_address_list(mjson['headers']['Bcc'])
+    @date = Time.parse(mjson['headers']['Date'])
   end
 
   def decode_header_field v
@@ -258,7 +272,11 @@ class Message
         ## bloat the index.
         ## actually, it's also the differentiation between to/cc/bcc,
         ## so i will keep this.
-        rmsg = location.parsed_message
+        rmsg = if @filename
+                 File.open(@filename, 'rb') {|f| RMail::Parser.read f}
+               else
+                 location.parsed_message
+               end
         parse_header rmsg.header
         message_to_chunks rmsg
       rescue SourceError, SocketError, RMail::EncodingUnsupportedError => e

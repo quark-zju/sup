@@ -281,6 +281,9 @@ class ThreadSet
     ## map from subject strings or (or root message ids) to thread objects
     @threads = SavingHash.new { Thread.new }
     @thread_by_subj = thread_by_subj
+
+    # how many loaded
+    @offset = 0
   end
 
   def thread_for_id mid; @messages.member?(mid) && @messages[mid].root.thread end
@@ -345,6 +348,45 @@ class ThreadSet
     c = @messages[mid]
     t = c.root.thread
     @threads.delete_if { |key, thread| t == thread }
+  end
+
+  def load_more_threads num, *query
+    return if num <= @offset
+    thread_ids = Notmuch.search(*query, offset: @offset, limit: num - @offset)
+    # TODO: exclude known threads
+    threads = Notmuch.show(thread_ids.join(' or '))
+    fail if threads.size != thread_ids.size
+    threads.zip(thread_ids).each do |tjson, tid|
+      process_thread_json tjson, tid
+    end
+    yield size if block_given?
+  end
+
+  def process_thread_json tjson, tid, parentmid=nil
+    thread = @threads[tid]
+    tjson.each.with_index do |mjson, i|
+      case mjson
+      when Array
+        process_thread_json mjson, tid, parentmid
+      else
+        mid = mjson['id']
+        parentmid = mid if i == 0
+        c = @messages[mid] # the container
+        next if c.message # already seen the message
+        m = Message.new
+        m.load_from_json! mjson
+        c.message = m
+        link @messages[parentmid], c if parentmid
+
+        root = c.root
+        if !root.thread
+          thread << root
+          root.thread = thread
+        end
+
+        @num_messages += 1
+      end
+    end
   end
 
   ## load in (at most) num number of threads from the index
