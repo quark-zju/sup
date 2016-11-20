@@ -350,7 +350,7 @@ class ThreadSet
     @threads.delete_if { |key, thread| t == thread }
   end
 
-  def load_more_threads num, *query
+  def load_n_threads num, *query
     return if num <= @offset
     new_thread_ids = Notmuch.search(*query, offset: @offset, limit: num - @offset)
     new_thread_ids.reject! {|tid| @threads.key? tid}
@@ -390,11 +390,6 @@ class ThreadSet
         @num_messages += 1
       end
     end
-  end
-
-  ## load in (at most) num number of threads from the index
-  def load_n_threads num, opts={}
-    load_more_threads num, opts
   end
 
   ## merges two threads together. both must be members of this threadset.
