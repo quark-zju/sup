@@ -32,6 +32,11 @@ module Redwood
 class Notmuch
   include Redwood::Singleton
 
+  # low-level
+  def count(*query)
+    run('count', *query).to_i
+  end
+
   private
 
   def run(*args, check_status: true, check_stderr: true, filter: nil)

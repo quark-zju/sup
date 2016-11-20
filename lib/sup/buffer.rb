@@ -135,10 +135,10 @@ protected
 
   def hook_opts
     {
-      :num_inbox => lambda { Index.num_results_for :label => :inbox },
-      :num_inbox_unread => lambda { Index.num_results_for :labels => [:inbox, :unread] },
-      :num_total => lambda { Index.size },
-      :num_spam => lambda { Index.num_results_for :label => :spam },
+      :num_inbox => lambda { Notmuch.count('tag:inbox') },
+      :num_inbox_unread => lambda { Notmuch.count('tag:inbox tag:unread') },
+      :num_total => lambda { Notmuch.count },
+      :num_spam => lambda { Notmuch.count('tag:spam') },
       :title => self.title,
       :mode => self.mode.name,
       :status => self.mode.status

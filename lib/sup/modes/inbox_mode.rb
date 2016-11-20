@@ -78,7 +78,7 @@ class InboxMode < ThreadIndexMode
   end
 
   def status
-    super + "    #{Index.size} messages in index"
+    super + "    #{Notmuch.count} messages in index"
   end
 end
 

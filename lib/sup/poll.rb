@@ -80,7 +80,7 @@ EOS
                     :num_deleted => @running_totals[:numd],
                     :labels => @running_totals[:loaded_labels],
                     :from_and_subj => from_and_subj, :from_and_subj_inbox => from_and_subj_inbox,
-                    :num_inbox_total_unread => lambda { Index.num_results_for :labels => [:inbox, :unread] } }
+                    :num_inbox_total_unread => lambda { Notmuch.count('tag:inbox tag:unread') } }
 
       HookManager.run("after-poll", hook_args)
     end
