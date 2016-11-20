@@ -145,14 +145,8 @@ def stop_cursing
 end
 module_function :start_cursing, :stop_cursing
 
-Index.init
-Index.lock_interactively or exit
-
 begin
   Redwood::start
-
-  Index.load
-  Redwood::check_syncback_settings
 
   $die = false
   trap("TERM") { |x| $die = true }
@@ -163,19 +157,6 @@ begin
     else
       ::Thread.new { BufferManager.sigwinch_happened! }
     end
-  end
-
-  if(s = Redwood::SourceManager.source_for DraftManager.source_name)
-    DraftManager.source = s
-  else
-    debug "no draft source, auto-adding..."
-    Redwood::SourceManager.add_source DraftManager.new_source
-  end
-
-  if(s = Redwood::SourceManager.source_for SentManager.source_uri)
-    SentManager.source = s
-  else
-    Redwood::SourceManager.add_source SentManager.default_source
   end
 
   HookManager.run "startup"
@@ -217,7 +198,6 @@ begin
 
   unless $opts[:no_threads]
     PollManager.start
-    Index.start_lock_update_thread
   end
 
   if $opts[:search]
@@ -311,19 +291,21 @@ begin
     when :poll
       reporting_thread("user-invoked poll") { PollManager.poll }
     when :recall_draft
-      case Index.num_results_for :label => :draft
-      when 0
-        bm.flash "No draft messages."
-      when 1
-        m = nil
-        Index.each_id_by_date(:label => :draft) { |mid, builder| m = builder.call }
-        r = ResumeMode.new(m)
-        BufferManager.spawn "Edit message", r
-        r.default_edit_message
-      else
-        b, new = BufferManager.spawn_unless_exists("All drafts") { LabelSearchResultsMode.new [:draft] }
-        b.mode.load_threads :num => b.content_height if new
-      end
+      # TODO notmuch
+      fail
+      # case Index.num_results_for :label => :draft
+      # when 0
+      #   bm.flash "No draft messages."
+      # when 1
+      #   m = nil
+      #   Index.each_id_by_date(:label => :draft) { |mid, builder| m = builder.call }
+      #   r = ResumeMode.new(m)
+      #   BufferManager.spawn "Edit message", r
+      #   r.default_edit_message
+      # else
+      #   b, new = BufferManager.spawn_unless_exists("All drafts") { LabelSearchResultsMode.new [:draft] }
+      #   b.mode.load_threads :num => b.content_height if new
+      # end
     when :show_inbox
       BufferManager.raise_to_front ibuf
     when :roll_front_buffers
@@ -355,7 +337,6 @@ rescue Exception => e
 ensure
   unless $opts[:no_threads]
     PollManager.stop if PollManager.instantiated?
-    Index.stop_lock_update_thread
   end
 
   HookManager.run "shutdown" if HookManager.instantiated?
@@ -372,12 +353,9 @@ ensure
 
   if Redwood::exceptions.empty?
     debug "no fatal errors. good job, william."
-    Index.save
   else
     error "oh crap, an exception"
   end
-
-  Index.unlock
 
   if (fn = ENV['SUP_PROFILE'])
     result = RubyProf.stop

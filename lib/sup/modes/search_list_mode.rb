@@ -93,7 +93,7 @@ protected
         end
         total = Notmuch.count(query)
         unread = Notmuch.count(query, :label => :unread)
-      rescue Index::ParseError => e
+      rescue Notmuch::ParseError => e
         BufferManager.flash "Problem: #{e.message}!"
         total = 0
         unread = 0

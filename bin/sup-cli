@@ -7,16 +7,6 @@ require_relative '../lib/sup'
 require 'pry'
 
 module Redwood
-  Index.init
-  Index.lock_interactively or exit
-
   start true
-  Index.load
-
-  i = index = Index.instance
-  thread_set = ThreadSet.new
-
   Pry.start binding, quiet: true
-ensure
-  Index.unlock
 end

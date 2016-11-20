@@ -50,7 +50,7 @@ class SearchResultsMode < ThreadIndexMode
       mode = SearchResultsMode.new query
       BufferManager.spawn "search: \"#{short_text}\"", mode
       mode.load_threads :num => mode.buffer.content_height
-    rescue Index::ParseError => e
+    rescue Notmuch::ParseError => e
       BufferManager.flash "Problem: #{e.message}!"
     end
   end

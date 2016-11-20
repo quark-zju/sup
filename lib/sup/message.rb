@@ -45,12 +45,9 @@ class Message
 
   bool_reader :dirty, :dirty_labels, :source_marked_read, :snippet_contains_encrypted_content
 
-  attr_accessor :locations
-
   ## if you specify a :header, will use values from that. otherwise,
   ## will try and load the header from the source.
   def initialize opts={}
-    @locations = opts[:locations] || []
     @snippet = opts[:snippet]
     @snippet_contains_encrypted_content = false
     @have_snippet = !(opts[:snippet].nil? || opts[:snippet].empty?)
@@ -72,6 +69,7 @@ class Message
     elsif opts[:header]
       parse_header(opts[:header])
     end
+    raise 'filename is required' if @filename.nil?
   end
 
   def load_from_json! mjson
@@ -257,20 +255,9 @@ class Message
     @chunks
   end
 
-  def location
-    @locations.find { |x| x.valid? } || raise(OutOfSyncSourceError.new)
-  end
-
-  def source
-    location.source
-  end
-
-  def source_info
-    location.info
-  end
-
   ## this is called when the message body needs to actually be loaded.
   def load_from_source!
+    return unless @filename # should we just fail here?
     @chunks ||=
       begin
         ## we need to re-read the header because it contains information
@@ -281,26 +268,17 @@ class Message
         ## bloat the index.
         ## actually, it's also the differentiation between to/cc/bcc,
         ## so i will keep this.
-        rmsg = if @filename
-                 File.open(@filename, 'rb') {|f| RMail::Parser.read f}
-               else
-                 location.parsed_message
-               end
+        rmsg = File.open(@filename, 'rb') {|f| RMail::Parser.read f}
         parse_header rmsg.header
         message_to_chunks rmsg
-      rescue SourceError, SocketError, RMail::EncodingUnsupportedError => e
+      rescue SocketError, RMail::EncodingUnsupportedError => e
         warn_with_location "problem reading message #{id}"
-        debug "could not load message: #{location.inspect}, exception: #{e.inspect}"
 
         [Chunk::Text.new(error_message.split("\n"))]
 
       rescue Exception => e
-
         warn_with_location "problem reading message #{id}"
-        debug "could not load message: #{location.inspect}, exception: #{e.inspect}"
-
         raise e
-
       end
   end
 
@@ -842,69 +820,7 @@ EOS
 
   def warn_with_location msg
     warn msg
-    warn "Message is in #{location.source.uri} at #{location.info}"
-  end
-end
-
-class Location
-  attr_reader :source
-  attr_reader :info
-
-  def initialize source, info
-    @source = source
-    @info = info
-  end
-
-  def raw_header
-    source.raw_header info
-  end
-
-  def raw_message
-    source.raw_message info
-  end
-
-  def sync_back labels, message
-    # TODO: notmuch
-    # synced = false
-    # return synced unless sync_back_enabled? and valid?
-    # source.synchronize do
-    #   new_info = source.sync_back(@info, labels)
-    #   if new_info
-    #     @info = new_info
-    #     Index.sync_message message, true
-    #     synced = true
-    #   end
-    # end
-    # synced
-  end
-
-  def sync_back_enabled?
-    source.respond_to? :sync_back and $config[:sync_back_to_maildir] and source.sync_back_enabled?
-  end
-
-  ## much faster than raw_message
-  def each_raw_message_line &b
-    source.each_raw_message_line info, &b
-  end
-
-  def parsed_message
-    source.load_message info
-  end
-
-  def valid?
-    source.valid? info
-  end
-
-  def labels?
-    source.labels? info
-  end
-
-  def == o
-    o.source.id == source.id and o.info == info
-  end
-
-  def hash
-    [source.id, info].hash
+    warn "Message is in #{@filename}"
   end
 end
 
