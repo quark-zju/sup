@@ -73,10 +73,6 @@ class InboxMode < ThreadIndexMode
     regen_text
   end
 
-  def handle_idle_update sender, idle_since
-    flush_index
-  end
-
   def status
     super + "    #{Notmuch.count} messages in index"
   end

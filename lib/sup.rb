@@ -77,7 +77,7 @@ module Redwood
   def managers
     %w(HookManager SentManager ContactManager LabelManager AccountManager
     DraftManager UpdateManager PollManager CryptoManager UndoManager
-    SourceManager SearchManager IdleManager LayoutManager).map { |x| Redwood.const_get x.to_sym }
+    SourceManager SearchManager LayoutManager).map { |x| Redwood.const_get x.to_sym }
   end
 
   def start bypass_sync_check = false
@@ -325,7 +325,6 @@ require "sup/modes/completion_mode"
 require "sup/sent"
 require "sup/search"
 require "sup/modes/search_list_mode"
-require "sup/idle"
 
 $:.each do |base|
   d = File.join base, "sup/share/modes/"
