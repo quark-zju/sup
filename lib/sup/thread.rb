@@ -388,6 +388,7 @@ class ThreadSet
   end
 
   def is_relevant? m
+    return true if contains? m
     m.refs.any? { |ref_id| @messages.member? ref_id }
   end
 

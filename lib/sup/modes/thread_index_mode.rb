@@ -2,9 +2,6 @@ require 'set'
 
 module Redwood
 
-## subclasses should implement:
-## - is_relevant?
-
 class ThreadIndexMode < LineCursorMode
   DATE_WIDTH = Time::TO_NICE_S_MAX_LEN
   MIN_FROM_WIDTH = 15
@@ -175,8 +172,6 @@ EOS
     if(t = thread_containing(m))
       l = @lines[t] or return
       update_text_for_line l
-    elsif is_relevant?(m)
-      add_or_unhide m
     end
   end
 
@@ -192,12 +187,11 @@ EOS
     end
   end
 
-  ## overwrite me!
-  def is_relevant? m; false; end
-
   def handle_thread_ids_updated_update sender, thread_ids
     @ts_mutex.synchronize do
-      # FIXME This is WRONG, we probably want poll thread per index
+      query = "(#{Notmuch.convert_query(@load_thread_opts)}) and (#{thread_ids.join(' or ')})"
+      # filter thread_ids
+      thread_ids = Notmuch.search(query, limit: thread_ids.size)
       @ts.load_thread_ids thread_ids
     end
     update
@@ -807,10 +801,7 @@ protected
 
   def add_or_unhide m
     @ts_mutex.synchronize do
-      if (is_relevant?(m) || @ts.is_relevant?(m)) && !@ts.contains?(m)
-        @ts.load_thread_ids [m.thread_id]
-      end
-
+      @ts.load_thread_ids [m.thread_id] if @ts.is_relevant?(m)
       @hidden_threads.delete @ts.thread_for(m)
     end
 

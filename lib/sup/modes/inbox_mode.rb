@@ -15,8 +15,6 @@ class InboxMode < ThreadIndexMode
     @@instance = self
   end
 
-  def is_relevant? m; (m.labels & [:spam, :deleted, :killed, :inbox]) == Set.new([:inbox]) end
-
   def refine_search
     text = BufferManager.ask :search, "refine inbox with query: "
     return unless text && text !~ /^\s*$/

@@ -5,8 +5,6 @@ class PersonSearchResultsMode < ThreadIndexMode
     @people = people
     super [], { :participants => @people }
   end
-
-  def is_relevant? m; @people.any? { |p| m.from == p }; end
 end
 
 end

@@ -20,8 +20,6 @@ class LabelSearchResultsMode < ThreadIndexMode
     SearchResultsMode.spawn_from_query query
   end
 
-  def is_relevant? m; @labels.all? { |l| m.has_label? l } end
-
   def self.spawn_nicely label
     label = LabelManager.label_for(label) unless label.is_a?(Symbol)
     case label
