@@ -410,10 +410,6 @@ class ThreadSet
     true
   end
 
-  def is_relevant? m
-    m.refs.any? { |ref_id| @messages.member? ref_id }
-  end
-
   def delete_message message
     el = @messages[message.id]
     return unless el.message
