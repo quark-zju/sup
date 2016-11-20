@@ -394,30 +394,7 @@ class ThreadSet
 
   ## load in (at most) num number of threads from the index
   def load_n_threads num, opts={}
-    @index.each_id_by_date opts do |mid, builder|
-      break if size >= num unless num == -1
-      next if contains_id? mid
-
-      m = builder.call
-      load_thread_for_message m, :skip_killed => opts[:skip_killed], :load_deleted => opts[:load_deleted], :load_spam => opts[:load_spam]
-      yield size if block_given?
-    end
-  end
-
-  ## loads in all messages needed to thread m
-  ## may do nothing if m's thread is killed
-  def load_thread_for_message m, opts={}
-    good = @index.each_message_in_thread_for m, opts do |mid, builder|
-      next if contains_id? mid
-      add_message builder.call
-    end
-    add_message m if good
-  end
-
-  ## merges in a pre-loaded thread
-  def add_thread t
-    raise "duplicate" if @threads.values.member? t
-    t.each { |m, *o| add_message m }
+    load_more_threads num, opts
   end
 
   ## merges two threads together. both must be members of this threadset.
@@ -458,51 +435,8 @@ class ThreadSet
 
   ## the heart of the threading code
   def add_message message
-    el = @messages[message.id]
-    return if el.message # we've seen it before
-
-    #puts "adding: #{message.id}, refs #{message.refs.inspect}"
-
-    el.message = message
-    oldroot = el.root
-
-    ## link via references:
-    (message.refs + [el.id]).inject(nil) do |prev, ref_id|
-      ref = @messages[ref_id]
-      link prev, ref if prev
-      ref
-    end
-
-    ## link via in-reply-to:
-    message.replytos.each do |ref_id|
-      ref = @messages[ref_id]
-      link ref, el, true
-      break # only do the first one
-    end
-
-    root = el.root
-    key =
-      if thread_by_subj?
-        Message.normalize_subj root.subj
-      else
-        root.id
-      end
-
-    ## check to see if the subject is still the same (in the case
-    ## that we first added a child message with a different
-    ## subject)
-    if root.thread
-      if @threads.member?(key) && @threads[key] != root.thread
-        @threads.delete key
-      end
-    else
-      thread = @threads[key]
-      thread << root
-      root.thread = thread
-    end
-
-    ## last bit
-    @num_messages += 1
+    # TODO migrating to notmuch
+    fail
   end
 end
 
