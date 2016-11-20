@@ -352,14 +352,17 @@ class ThreadSet
 
   def load_more_threads num, *query
     return if num <= @offset
-    thread_ids = Notmuch.search(*query, offset: @offset, limit: num - @offset)
-    # TODO: exclude known threads
-    threads = Notmuch.show(thread_ids.join(' or '))
-    fail if threads.size != thread_ids.size
-    threads.zip(thread_ids).each do |tjson, tid|
-      process_thread_json tjson, tid
+    new_thread_ids = Notmuch.search(*query, offset: @offset, limit: num - @offset)
+    new_thread_ids.reject! {|tid| @threads.key? tid}
+    new_thread_ids.each_slice(40) do |thread_ids| # batch size: 40
+      threads = Notmuch.show(thread_ids.join(' or '))
+      fail if threads.size != thread_ids.size
+      threads.zip(thread_ids).each do |tjson, tid|
+        process_thread_json tjson, tid
+      end
+      yield size if block_given?
     end
-    yield size if block_given?
+    @offset = num
   end
 
   def process_thread_json tjson, tid, parentmid=nil
