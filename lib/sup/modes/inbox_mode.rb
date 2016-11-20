@@ -36,13 +36,13 @@ class InboxMode < ThreadIndexMode
     UndoManager.register "archiving thread" do
       thread.apply_label :inbox
       add_or_unhide thread.first
-      Index.save_thread thread
+      Notmuch.save_thread thread
     end
 
     cursor_thread.remove_label :inbox
     hide_thread cursor_thread
     regen_text
-    Index.save_thread thread
+    Notmuch.save_thread thread
   end
 
   def multi_archive threads
@@ -50,7 +50,7 @@ class InboxMode < ThreadIndexMode
       threads.map do |t|
         t.apply_label :inbox
         add_or_unhide t.first
-        Index.save_thread t
+        Notmuch.save_thread t
       end
       regen_text
     end
@@ -60,7 +60,7 @@ class InboxMode < ThreadIndexMode
       hide_thread t
     end
     regen_text
-    threads.each { |t| Index.save_thread t }
+    threads.each { |t| Notmuch.save_thread t }
   end
 
   def handle_unarchived_update sender, m

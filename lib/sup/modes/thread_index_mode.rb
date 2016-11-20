@@ -126,7 +126,7 @@ EOS
       ## are set, and the second to show the cursor having moved
 
       t.remove_label :unread
-      Index.save_thread t
+      Notmuch.save_thread t
 
       update_text_for_line curpos
       UpdateManager.relay self, :read, t.first
@@ -208,7 +208,7 @@ EOS
       # @ts.delete_message m
       # @ts.add_message m
     end
-    Index.save_thread t, sync_back = false
+    # Notmuch.save_thread t # do we need this?
     update_text_for_line l
   end
 
@@ -316,18 +316,18 @@ EOS
   def toggle_starred
     t = cursor_thread or return
     undo = actually_toggle_starred t
-    UndoManager.register "toggling thread starred status", undo, lambda { Index.save_thread t }
+    UndoManager.register "toggling thread starred status", undo, lambda { Notmuch.save_thread t }
     update_text_for_line curpos
     cursor_down
-    Index.save_thread t
+    Notmuch.save_thread t
   end
 
   def multi_toggle_starred threads
     UndoManager.register "toggling #{threads.size.pluralize 'thread'} starred status",
       threads.map { |t| actually_toggle_starred t },
-      lambda { threads.each { |t| Index.save_thread t } }
+      lambda { threads.each { |t| Notmuch.save_thread t } }
     regen_text
-    threads.each { |t| Index.save_thread t }
+    threads.each { |t| Notmuch.save_thread t }
   end
 
   ## returns an undo lambda
@@ -404,17 +404,17 @@ EOS
     t = cursor_thread or return
     undo = actually_toggle_archived t
     UndoManager.register "deleting/undeleting thread #{t.first.id}", undo, lambda { update_text_for_line curpos },
-                         lambda { Index.save_thread t }
+                         lambda { Notmuch.save_thread t }
     update_text_for_line curpos
-    Index.save_thread t
+    Notmuch.save_thread t
   end
 
   def multi_toggle_archived threads
     undos = threads.map { |t| actually_toggle_archived t }
     UndoManager.register "deleting/undeleting #{threads.size.pluralize 'thread'}", undos, lambda { regen_text },
-                         lambda { threads.each { |t| Index.save_thread t } }
+                         lambda { threads.each { |t| Notmuch.save_thread t } }
     regen_text
-    threads.each { |t| Index.save_thread t }
+    threads.each { |t| Notmuch.save_thread t }
   end
 
   def toggle_new
@@ -422,13 +422,13 @@ EOS
     t.toggle_label :unread
     update_text_for_line curpos
     cursor_down
-    Index.save_thread t
+    Notmuch.save_thread t
   end
 
   def multi_toggle_new threads
     threads.each { |t| t.toggle_label :unread }
     regen_text
-    threads.each { |t| Index.save_thread t }
+    threads.each { |t| Notmuch.save_thread t }
   end
 
   def multi_toggle_tagged threads
@@ -444,7 +444,7 @@ EOS
 
   def multi_join_threads threads
     @ts.join_threads threads or return
-    threads.each { |t| Index.save_thread t }
+    threads.each { |t| Notmuch.save_thread t }
     @tags.drop_all_tags # otherwise we have tag pointers to invalid threads!
     update
   end
@@ -479,9 +479,9 @@ EOS
     undos = threads.map { |t| actually_toggle_spammed t }
     threads.each { |t| HookManager.run("mark-as-spam", :thread => t) }
     UndoManager.register "marking/unmarking  #{threads.size.pluralize 'thread'} as spam",
-                         undos, lambda { regen_text }, lambda { threads.each { |t| Index.save_thread t } }
+                         undos, lambda { regen_text }, lambda { threads.each { |t| Notmuch.save_thread t } }
     regen_text
-    threads.each { |t| Index.save_thread t }
+    threads.each { |t| Notmuch.save_thread t }
   end
 
   def toggle_deleted
@@ -493,9 +493,9 @@ EOS
   def multi_toggle_deleted threads
     undos = threads.map { |t| actually_toggle_deleted t }
     UndoManager.register "deleting/undeleting #{threads.size.pluralize 'thread'}",
-                         undos, lambda { regen_text }, lambda { threads.each { |t| Index.save_thread t } }
+                         undos, lambda { regen_text }, lambda { threads.each { |t| Notmuch.save_thread t } }
     regen_text
-    threads.each { |t| Index.save_thread t }
+    threads.each { |t| Notmuch.save_thread t }
   end
 
   def kill
@@ -520,7 +520,7 @@ EOS
         end
       end.each do |t|
         UpdateManager.relay self, :labeled, t.first
-        Index.save_thread t
+        Notmuch.save_thread t
       end
       regen_text
     end
@@ -534,7 +534,7 @@ EOS
     end.each do |t|
       # send 'labeled'... this might be more specific
       UpdateManager.relay self, :labeled, t.first
-      Index.save_thread t
+      Notmuch.save_thread t
     end
 
     killed, unkilled = threads.partition { |t| t.has_label? :killed }.map(&:size)
@@ -603,11 +603,11 @@ EOS
       thread.labels = old_labels
       update_text_for_line pos
       UpdateManager.relay self, :labeled, thread.first
-      Index.save_thread thread
+      Notmuch.save_thread thread
     end
 
     UpdateManager.relay self, :labeled, thread.first
-    Index.save_thread thread
+    Notmuch.save_thread thread
   end
 
   def multi_edit_labels threads
@@ -641,12 +641,12 @@ EOS
       threads.zip(old_labels).map do |t, old_labels|
         t.labels = old_labels
         UpdateManager.relay self, :labeled, t.first
-        Index.save_thread t
+        Notmuch.save_thread t
       end
       regen_text
     end
 
-    threads.each { |t| Index.save_thread t }
+    threads.each { |t| Notmuch.save_thread t }
   end
 
   def reply type_arg=nil
@@ -757,14 +757,14 @@ EOS
       thread.apply_label :inbox
       thread.apply_label :unread if was_unread
       add_or_unhide thread.first
-      Index.save_thread thread
+      Notmuch.save_thread thread
     end
 
     cursor_thread.remove_label :unread
     cursor_thread.remove_label :inbox
     hide_thread cursor_thread
     regen_text
-    Index.save_thread thread
+    Notmuch.save_thread thread
   end
 
   def multi_read_and_archive threads
@@ -781,12 +781,12 @@ EOS
       threads.zip(old_labels).each do |t, l|
         t.labels = l
         add_or_unhide t.first
-        Index.save_thread t
+        Notmuch.save_thread t
       end
       regen_text
     end
 
-    threads.each { |t| Index.save_thread t }
+    threads.each { |t| Notmuch.save_thread t }
   end
 
   def resize rows, cols

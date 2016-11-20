@@ -61,6 +61,10 @@ class Notmuch
 
   # high-level
 
+  def save_thread t
+    Message.sync_back_labels t.messages
+  end
+
   def load_contacts(email_addresses, limit=20)
     @@contact_cache ||= {}
     key = "#{email_addresses}"
@@ -592,10 +596,6 @@ EOS
     debug "translated query: #{subs.inspect}"
     query[:text] = s
     query
-  end
-
-  def save_thread t, sync_back = true
-    Message.sync_back_labels t.messages
   end
 
   private

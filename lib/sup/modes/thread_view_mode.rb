@@ -337,10 +337,10 @@ EOS
     new_labels.each { |l| LabelManager << l }
     update
     UpdateManager.relay self, :labeled, @thread.first
-    Index.save_thread @thread
+    Notmuch.save_thread @thread
     UndoManager.register "labeling thread" do
       @thread.labels = old_labels
-      Index.save_thread @thread
+      Notmuch.save_thread @thread
       UpdateManager.relay self, :labeled, @thread.first
     end
   end
@@ -365,7 +365,7 @@ EOS
     ## star to the display
     update
     UpdateManager.relay self, :single_message_labeled, m
-    Index.save_thread @thread
+    Notmuch.save_thread @thread
   end
 
   ## called when someone presses enter when the cursor is highlighting
@@ -664,10 +664,10 @@ EOS
     dispatch op do
       @thread.remove_label :inbox
       UpdateManager.relay self, :archived, @thread.first
-      Index.save_thread @thread
+      Notmuch.save_thread @thread
       UndoManager.register "archiving 1 thread" do
         @thread.apply_label :inbox
-        Index.save_thread @thread
+        Notmuch.save_thread @thread
         UpdateManager.relay self, :unarchived, @thread.first
       end
     end
@@ -677,10 +677,10 @@ EOS
     dispatch op do
       @thread.apply_label :spam
       UpdateManager.relay self, :spammed, @thread.first
-      Index.save_thread @thread
+      Notmuch.save_thread @thread
       UndoManager.register "marking 1 thread as spam" do
         @thread.remove_label :spam
-        Index.save_thread @thread
+        Notmuch.save_thread @thread
         UpdateManager.relay self, :unspammed, @thread.first
       end
     end
@@ -690,10 +690,10 @@ EOS
     dispatch op do
       @thread.apply_label :deleted
       UpdateManager.relay self, :deleted, @thread.first
-      Index.save_thread @thread
+      Notmuch.save_thread @thread
       UndoManager.register "deleting 1 thread" do
         @thread.remove_label :deleted
-        Index.save_thread @thread
+        Notmuch.save_thread @thread
         UpdateManager.relay self, :undeleted, @thread.first
       end
     end
@@ -703,10 +703,10 @@ EOS
     dispatch op do
       @thread.apply_label :killed
       UpdateManager.relay self, :killed, @thread.first
-      Index.save_thread @thread
+      Notmuch.save_thread @thread
       UndoManager.register "killed 1 thread" do
         @thread.remove_label :killed
-        Index.save_thread @thread
+        Notmuch.save_thread @thread
         UpdateManager.relay self, :unkilled, @thread.first
       end
     end
@@ -716,7 +716,7 @@ EOS
     dispatch op do
       @thread.apply_label :unread
       UpdateManager.relay self, :unread, @thread.first
-      Index.save_thread @thread
+      Notmuch.save_thread @thread
     end
   end
 
