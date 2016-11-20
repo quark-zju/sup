@@ -24,7 +24,28 @@ since it's been replaced by the xapian-ruby gem.
   EOF
 end
 
+require 'open3'
+require 'shellwords'
+
 module Redwood
+
+class Notmuch
+  include Redwood::Singleton
+
+  private
+
+  def run(*args, check_status: true, check_stderr: true, filter: nil)
+    cmd = "notmuch #{Shellwords.join(args)}"
+    cmd << "| #{filter}" if filter
+    stdout_str, stderr_str, status = Open3.capture3(cmd)
+    if (check_status && !status.success?) || (check_stderr && !stderr_str.empty?)
+      raise "Failed to execute #{cmd}: exitcode=#{status.exitstatus}, stderr=#{stderr_str}"
+    end
+    stdout_str
+  end
+end
+
+Notmuch.init
 
 # This index implementation uses Xapian for searching and storage. It
 # tends to be slightly faster than Ferret for indexing and significantly faster
