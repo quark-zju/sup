@@ -63,14 +63,6 @@ A: Run:
      sup-sync [<source>+] --restored --restore <dumpfile>
    where <dumpfile> was created as above.
 
-Q: Xapian crashed and I can't read my index. Luckily I made a state
-   dump. What should I do?
-Q: How do I rebuild the index completely?
-A: Run:
-     rm -rf ~/.sup/xapian    # omg wtf
-     sup-sync --all-sources --all --restore <dumpfile>
-   Voila! A brand new index.
-
 Q: I want to move messages from one source to another. (E.g., my
    primary inbox is an mbox file, and I want to move some of those
    messages to a Maildir.) How do I do that while preserving message
