@@ -66,14 +66,33 @@ class Notmuch
 
   private
 
-  def run(*args, check_status: true, check_stderr: true, filter: nil)
-    cmd = "notmuch #{Shellwords.join(args)}"
+  def run(*args, check_status: true, check_stderr: true, filter: nil, **opts)
+    args.reject! { |a| opts.merge!(a) if a.is_a?(Hash) }
+    cmd = "notmuch #{Shellwords.join(args)} #{Shellwords.escape(convert_query opts)}"
     cmd << "| #{filter}" if filter
     stdout_str, stderr_str, status = Open3.capture3(cmd)
     if (check_status && !status.success?) || (check_stderr && !stderr_str.empty?)
       raise "Failed to execute #{cmd}: exitcode=#{status.exitstatus}, stderr=#{stderr_str}"
     end
     stdout_str
+  end
+
+  # translate a Sup query Hash to plain text (experimental)
+  def convert_query(opts={})
+    return opts if opts.is_a?(String)
+    return '' if opts.empty?
+    query = (opts[:text] || '').gsub(/\blabel:/, 'tag:').gsub(/\b(from|to):me\b/) do |m|
+      conditions = AccountManager.user_emails.map { |e| "#{m[/^.*:/]}#{e}" }
+      "(#{conditions.join(' or ')})"
+    end.gsub(/\B-tag:\w+/) do |t|
+      "(not #{t[1..-1]})"
+    end
+    query << ([*opts[:label]].map {|l| " tag:#{l}"}.join(''))
+    %w[spam delete killed].each do |tag|
+       loadtag = opts["load_#{tag}".to_sym] || (opts["skip_#{tag}".to_sym] == false)
+       query << " (not tag:#{tag})" if !loadtag && !query.include?("tag:#{tag}")
+    end
+    query
   end
 end
 
