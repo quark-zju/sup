@@ -41,6 +41,10 @@ class Notmuch
     run('config', 'set', name, [*value].join(';'))
   end
 
+  def lastmod # lastmod (ignored uuid for convenience)
+    run('count', '--lastmod').split.last.to_i
+  end
+
   def poll
     run('new', '--quiet')
   end
