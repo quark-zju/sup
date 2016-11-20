@@ -62,6 +62,7 @@ EOS
     input = query_tags.map do |q, ls|
       "#{ls.map{|l| "+#{l} "}.join} -- #{q}\n"
     end.join
+    @@logger.debug("tag input: #{input}") if @@logger
     run('tag', '--remove-all', '--batch', input: input)
   end
 
