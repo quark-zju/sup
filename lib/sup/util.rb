@@ -451,6 +451,7 @@ end
 
 class Numeric
   def clamp min, max
+    max = min if max < min
     if self < min
       min
     elsif self > max
