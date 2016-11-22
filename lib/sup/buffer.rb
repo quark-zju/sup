@@ -334,6 +334,7 @@ EOS
   end
 
   def draw_title
+    return if @focus_buf.nil?
     @focus_buf.title_text.tap do |title|
       # http://rtfm.etla.org/xterm/ctlseq.html (see Operating System Controls)
       print "\033]0;#{title}\07" if title && @in_x && title != @last_title
@@ -359,7 +360,7 @@ EOS
 
     drawn_buffers = []
 
-    ([@focus_buf] + @buffers.reverse).each do |buf|
+    ([@focus_buf].compact + @buffers.reverse).each do |buf|
       buf.update_window!
       next if drawn_buffers.any? {|rhs| buf.overlap_with? rhs}
       buf.mark_dirty if @dirty || opts[:dirty]
