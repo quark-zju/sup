@@ -353,8 +353,8 @@ class ThreadSet
       break if size >= num unless num == -1
       next if contains_id? mid
 
-      m = builder.call
-      load_thread_for_message m, :skip_killed => opts[:skip_killed], :load_deleted => opts[:load_deleted], :load_spam => opts[:load_spam]
+      m = builder.call rescue nil
+      load_thread_for_message m, :skip_killed => opts[:skip_killed], :load_deleted => opts[:load_deleted], :load_spam => opts[:load_spam] unless m.nil?
       yield size if block_given?
     end
   end
