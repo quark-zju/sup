@@ -366,8 +366,12 @@ class String
     # do this anyway in case string is set to be UTF-8, encoding to
     # something else (UTF-16 which can fully represent UTF-8) and back
     # ensures invalid chars are replaced.
-    encode!('UTF-16', 'UTF-8', :invalid => :replace, :undef => :replace)
-    encode!('UTF-8', 'UTF-16', :invalid => :replace, :undef => :replace)
+    # do not do this for Ruby 2.4.0p0, which may cause a crash. See
+    # https://github.com/sup-heliotrope/sup/issues/532
+    if RUBY_VERSION.to_f < 2.4
+      encode!('UTF-16', 'UTF-8', :invalid => :replace, :undef => :replace)
+      encode!('UTF-8', 'UTF-16', :invalid => :replace, :undef => :replace)
+    end
 
     fail "Could not create valid UTF-8 string out of: '#{self.to_s}'." unless valid_encoding?
 
