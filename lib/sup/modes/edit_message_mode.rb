@@ -131,6 +131,7 @@ EOS
     HookManager.run "before-edit", :header => @header, :body => @body
 
     @account_selector = nil
+    @old_from = nil
     # only show account selector if there is more than one email address
     if $config[:account_selector] && AccountManager.user_emails.length > 1
       ## Duplicate e-mail strings to prevent a "can't modify frozen
@@ -265,7 +266,7 @@ EOS
   def edit_message
     return false if warn_editing
 
-    old_from = @header["From"] if @account_selector
+    @old_from = @header["From"] if @account_selector
 
     begin
       save_message_to_file
@@ -397,7 +398,7 @@ protected
     @header = header - NON_EDITABLE_HEADERS
     set_sig_edit_flag
 
-    if @account_selector and @header["From"] != old_from
+    if @account_selector and @header["From"] != @old_from
       @account_user = @header["From"]
       @account_selector.set_to nil
     end
