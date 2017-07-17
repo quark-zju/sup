@@ -1,4 +1,5 @@
 require 'sup/constants'
+require 'sup/util'
 require 'yaml'
 
 module ::Redwood
