@@ -376,7 +376,7 @@ class String
     fail "Could not create valid UTF-8 string out of: '#{self.to_s}'." unless valid_encoding?
 
     # now convert to $encoding
-    encode!($encoding, :invalid => :replace, :undef => :replace)
+    encode!('UTF-8', $encoding, :invalid => :replace, :undef => :replace)
 
     fail "Could not create valid #{$encoding.inspect} string out of: '#{self.to_s}'." unless valid_encoding?
 
